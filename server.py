@@ -4,6 +4,7 @@ import json
 
 import tornado.ioloop
 import tornado.web
+import tornado.autoreload
 
 from sockjs.tornado import SockJSConnection, SockJSRouter
 from utils.multiplex import MultiplexConnection
@@ -14,12 +15,6 @@ class IndexHandler(tornado.web.RequestHandler):
     """Regular HTTP handler to serve the chatroom page"""
     def get(self):
         self.render('templates/base.html')
-
-
-# main.js static handler
-class MainStaticHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.render('scripts/main.js')
 
 
 # Connections
@@ -60,9 +55,10 @@ if __name__ == '__main__':
     app = tornado.web.Application(
         [
             (r'/', IndexHandler),
-            (r'/static/main.js', MainStaticHandler),
+            (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': './static'},),
         ] + MainSocketRouter.urls
     )
     app.listen(8888)
-
-    tornado.ioloop.IOLoop.instance().start()
+    io_loop = tornado.ioloop.IOLoop.instance()
+    tornado.autoreload.start(io_loop)
+    io_loop.start()
