@@ -7,7 +7,7 @@ import tornado.web
 import tornado.autoreload
 
 from sockjs.tornado import SockJSConnection, SockJSRouter
-from utils.multiplex import MultiplexConnection
+from multiplex import MultiplexConnection
 
 
 # Index page handler
