@@ -7,7 +7,7 @@ Description
 Implementation `Gomoku`_ realtime game using Websockets.
 
 
-Techonolgies
+Technologies
 ------------
 
 Backend (game server): Python 3.3, Tornado 3.1, sockjs-tornado 1.0.0
