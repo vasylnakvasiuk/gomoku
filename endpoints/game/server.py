@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-import json
-
 import tornado.ioloop
 import tornado.web
 import tornado.autoreload
 
-from sockjs.tornado import SockJSConnection, SockJSRouter
+from sockjs.tornado import SockJSRouter
 from multiplex import MultiplexConnection
+
+from connections import MultiParticipantsConnection, ChannelConnection
+
+from utils import rel
 
 
 # Index page handler
@@ -18,25 +20,18 @@ class IndexHandler(tornado.web.RequestHandler):
 
 
 # Connections
-class UsernameConnection(SockJSConnection):
-    def on_open(self, info):
-        # self.send('Username says hi!!')
-        pass
-
+class UsernameConnection(ChannelConnection, MultiParticipantsConnection):
     def on_message(self, message):
         if message == 'vaxxxa':
             answer = {'status': 'ok'}
         else:
             answer = {'status': 'error', 'errormsg': 'AAA!!!'}
-        self.send(json.dumps(answer))
+        self.send(answer)
 
 
-class GameListConnection(SockJSConnection):
-    def on_open(self, info):
-        self.send('Game list says hi!!')
-
+class GameListConnection(ChannelConnection, MultiParticipantsConnection):
     def on_message(self, message):
-        self.send('Game list nods: ' + message)
+        self.broadcast_all_channel('username', 'Hello world!')
 
 
 if __name__ == '__main__':
@@ -55,7 +50,7 @@ if __name__ == '__main__':
     app = tornado.web.Application(
         [
             (r'/', IndexHandler),
-            (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': './static'},),
+            (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': rel('static')},),
         ] + MainSocketRouter.urls
     )
     app.listen(8888)

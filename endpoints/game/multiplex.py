@@ -1,4 +1,6 @@
-from sockjs.tornado import conn, session
+# -*- coding: utf-8 -*-
+
+from sockjs.tornado import SockJSConnection, session, proto
 from sockjs.tornado.transports import base
 
 
@@ -11,7 +13,30 @@ class ChannelSession(session.BaseSession):
 
     def send_message(self, msg, stats=True, binary=False):
         # TODO: Handle stats
-        self.base.send('msg,' + self.name + ',' + msg)
+        self.base.send('msg,{},{}'.format(self.name, msg))
+
+    def send_message_channel(self, chan, msg, stats=True, binary=False):
+        # TODO: Handle stats
+        self.base.send('msg,{},{}'.format(chan, msg))
+
+    def broadcast_channel(self, chan, clients, msg):
+        json_msg = None
+
+        count = 0
+
+        for c in clients:
+            sess = c.session
+            if not sess.is_closed:
+                if sess.send_expects_json:
+                    if json_msg is None:
+                        json_msg = proto.json_encode(msg)
+                    sess.send_jsonified(json_msg, False)
+                else:
+                    sess.send_message_channel(chan, msg, stats=False)
+
+                count += 1
+
+        self.stats.on_pack_sent(count)
 
     def on_message(self, msg):
         self.conn.on_message(msg)
@@ -35,7 +60,7 @@ class DummyHandler(base.BaseTransportMixin):
         return self.conn_info
 
 
-class MultiplexConnection(conn.SockJSConnection):
+class MultiplexConnection(SockJSConnection):
     channels = dict()
 
     def on_open(self, info):
