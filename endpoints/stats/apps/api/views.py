@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import json
+
 from django.http import HttpResponse, HttpResponseServerError
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.models import User
@@ -67,3 +69,11 @@ def round_save(request):
     save_player_stats(creator, opponent, winner)
 
     return HttpResponse()
+
+
+@require_http_methods(["GET"])
+def player_top(request):
+    count = int(request.GET.get('count', 10))
+    top = PlayerPosition.objects.order_by('-wins').values(
+        'player', 'wins', 'losses', 'draws')[:count]
+    return HttpResponse(json.dumps(list(top)), mimetype="application/json")
