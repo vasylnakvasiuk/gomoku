@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+import json
+from hashlib import md5
+from uuid import uuid4
+
 import tornado.ioloop
 import tornado.web
 import tornado.autoreload
@@ -19,19 +23,47 @@ class IndexHandler(tornado.web.RequestHandler):
         self.render('templates/base.html')
 
 
+USERS = {}
+GAMES = []
+
+
 # Connections
 class UsernameConnection(ChannelConnection, MultiParticipantsConnection):
     def on_message(self, message):
-        if message == 'vaxxxa':
-            answer = {'status': 'ok'}
+        data = json.loads(message)
+        username = data.get('username')
+
+        if username and username not in USERS.values():
+            secret_key = md5(str(uuid4()).encode()).hexdigest()
+            USERS.update({secret_key: username})
+            answer = {
+                'status': 'ok',
+                'username': username,
+                'secret': secret_key
+            }
         else:
-            answer = {'status': 'error', 'errormsg': 'AAA!!!'}
-        self.send(answer)
+            answer = {
+                'status': 'error',
+                'errormsg': 'Someone already has that username.'
+            }
+        self.send(json.dumps(answer))
 
 
 class GameListConnection(ChannelConnection, MultiParticipantsConnection):
     def on_message(self, message):
-        self.broadcast_all_channel('username', 'Hello world!')
+        data = json.loads(message)
+
+        if data.get('action') == 'get_list':
+            self.send(json.dumps({
+                'games': GAMES
+            }))
+        elif data.get('action') == 'create_game':
+            GAMES.append({
+                'username': USERS.get(data['secret']),
+            })
+            self.broadcast_all(json.dumps({
+                'games': GAMES
+            }))
 
 
 if __name__ == '__main__':
