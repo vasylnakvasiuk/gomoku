@@ -27,6 +27,7 @@ Some description.
     $ git clone git@github.com:vaxXxa/gomoku.git
     $ cd gomoku
     $ python server.py
+    $ redis-server /usr/local/etc/redis.conf
 
 
 .. _`Gomoku`: https://en.wikipedia.org/wiki/Gomoku

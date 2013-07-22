@@ -29,3 +29,18 @@ class Round(models.Model):
     class Meta:
         verbose_name = 'Round'
         verbose_name_plural = 'Rounds'
+
+
+class PlayerPosition(models.Model):
+    player = models.ForeignKey(
+        User, verbose_name='Player', related_name='player_positions')
+    wins = models.PositiveIntegerField('Wins', default=0)
+    losses = models.PositiveIntegerField('Losses', default=0)
+    draws = models.PositiveIntegerField('Draws', default=0)
+
+    def __unicode__(self):
+        return '{0} (wins = {1})'.format(self.player, self.wins)
+
+    class Meta:
+        verbose_name = 'Player position'
+        verbose_name_plural = 'Player position'

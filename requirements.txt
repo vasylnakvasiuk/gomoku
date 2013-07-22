@@ -4,3 +4,4 @@ sockjs-tornado==1.0.0
 
 # stats endpoint
 Django==1.5.1
+redis==2.7.6
