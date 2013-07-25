@@ -20,6 +20,7 @@
 		<div id="pages">
 			<div id="error"></div>
 			<div id="nickname"></div>
+			<div id="games"></div>
 		</div>
 	</div>
 
@@ -38,6 +39,36 @@
 			<label for="nickname-username">Nickname</label>
 			<input id="nickname-username" type="text" placeholder="Type your nickname…">
 		</div>
+	</script>
+
+	<script id="tpl-games" type="text/template">
+		<div class="page">
+			<fieldset>
+				<label for="games-choose">Choose the Game</label>
+				<div id="games-choose-container"></div>
+				<div>
+					<button id="games-join" type="button" class="btn">Join</button>
+				</div>
+			</fieldset>
+			<fieldset>
+				<button id="games-create" type="button" class="btn">Create</button>
+			</fieldset>
+		</div>
+	</script>
+
+	<script id="tpl-games-choose-container" type="text/template">
+		{{#data}}
+		<select id="games-choose" size="8">
+			{{#loop}}
+			<option value="{{id}}">{{title}}</option>
+			{{/loop}}
+		</select>
+		{{/data}}
+		{{^data}}
+		<select id="games-choose" size="8" disabled>
+			<option value="">No games :(</option>
+		</select>
+		{{/data}}
 	</script>
 	{% endraw %}
 	<!-- Mustache templates -->

@@ -36,12 +36,12 @@ class UsernameChoiceConnection(ChannelConnection, MultiParticipantsConnection):
         username = data.get('username')
 
         if username and username not in USERS.values():
-            secret_key = md5(str(uuid4()).encode()).hexdigest()
-            USERS.update({secret_key: username})
+            secret = md5(str(uuid4()).encode()).hexdigest()
+            USERS.update({secret: username})
             answer = {
                 'status': 'ok',
                 'username': username,
-                'secret': secret_key
+                'secret': secret
             }
         else:
             answer = {
@@ -51,21 +51,39 @@ class UsernameChoiceConnection(ChannelConnection, MultiParticipantsConnection):
         self.send(json.dumps(answer))
 
 
-class GameListConnection(ChannelConnection, MultiParticipantsConnection):
+class GamesListConnection(ChannelConnection, MultiParticipantsConnection):
     def on_message(self, message):
         data = json.loads(message)
+        secret = data.get('secret')
 
-        if data.get('action') == 'get_list':
-            self.send(json.dumps({
-                'games': GAMES
-            }))
-        elif data.get('action') == 'create_game':
-            GAMES.append({
-                'username': USERS.get(data['secret']),
-            })
-            self.broadcast_all(json.dumps({
-                'games': GAMES
-            }))
+        if secret and secret in USERS:
+            answer = {
+                'status': 'ok',
+                'games': [{"id": 1, "title": "asf"}, {"id": 2, "title": "asf"}]
+            }
+        else:
+            answer = {
+                'status': 'error',
+                'errors': ['Your secret key is wrong.']
+            }
+        self.send(json.dumps(answer))
+
+
+class GamesJoinConnection(ChannelConnection, MultiParticipantsConnection):
+    def on_message(self, message):
+        data = json.loads(message)
+        secret = data.get('secret')
+
+        if secret and secret in USERS:
+            answer = {
+                'status': 'ok'
+            }
+        else:
+            answer = {
+                'status': 'error',
+                'errors': ['Can not connect to this game. Try another one.']
+            }
+        self.send(json.dumps(answer))
 
 
 if __name__ == '__main__':
@@ -75,6 +93,8 @@ if __name__ == '__main__':
     # Create multiplexer
     channels = {
         "username_choice": UsernameChoiceConnection,
+        "games_list": GamesListConnection,
+        "games_join": GamesJoinConnection
     }
 
     router = MultiplexConnection.get(**channels)

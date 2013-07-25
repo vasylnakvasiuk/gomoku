@@ -2,7 +2,9 @@ var sock_url = '/socket';
 var sock = new SockJS(sock_url);
 
 var multiplexer = new WebSocketMultiplex(sock);
-var username_choice_sock = multiplexer.channel('username_choice');
+var usernameChoiceSock = multiplexer.channel('username_choice');
+var gamesListSock = multiplexer.channel('games_list');
+var gamesJoinSock = multiplexer.channel('games_join');
 
 $(function() {
 
@@ -60,13 +62,15 @@ app.view.nickname = {
 	init: function() {
 		this.render();
 
-		username_choice_sock.onmessage = function(evt) {
+		usernameChoiceSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'error'){
 				app.view.error.init(obj.errors);
 			}
-			else{
-				console.log("Go to the next...");
+			else {
+				app.secret = obj.secret;
+				app.username = obj.username;
+				app.goto("games");
 			}
 		};
 
@@ -76,11 +80,9 @@ app.view.nickname = {
 		var self = this;
 
 		$("#nickname-username").keyup(function(e) {
-			if(e.keyCode == 13) {
-				username_choice_sock.send(
-					JSON.stringify(
-						self.serialize()
-					)
+			if (e.keyCode == 13) {
+				usernameChoiceSock.send(
+					JSON.stringify(self.serialize())
 				);
 			}
 		});
@@ -96,6 +98,107 @@ app.view.nickname = {
 		return {
 			"username": username
 		};
+	},
+
+	empty: function() {
+		this.el.empty();
+	}
+};
+
+// Games view.
+app.view.games = {
+	el: $("#games"),
+	templates: {
+		"main": $("#tpl-games").html(),
+		"list": $("#tpl-games-choose-container").html()
+	},
+	model: [],
+
+	init: function(model) {
+		this.model = model || this.model;
+		this.render();
+
+		if (model !== undefined) {
+			this.updateModel(model);
+		} else {
+			gamesListSock.send(
+				JSON.stringify(
+					{"secret": app.secret}
+				)
+			);
+		}
+
+		var self = this;
+		gamesListSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			if (obj.status == 'error'){
+				app.view.error.init(obj.errors);
+			}
+			else {
+				self.updateModel(obj.games);
+			}
+		};
+
+		gamesJoinSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			if (obj.status == 'error'){
+				app.view.error.init(obj.errors);
+			}
+			else {
+				console.log("Go to the next...");
+			}
+		};
+
+	},
+
+	events: function() {
+		var self = this;
+
+		$('#games-join').click(function() {
+			gamesJoinSock.send(
+				JSON.stringify(self.serialize())
+			);
+		});
+
+		$('#games-create').click(function() {
+			console.log("Go to the next...");
+		});
+	},
+
+	render: function() {
+		this.el.html(Mustache.render(this.templates["main"], {}));
+		this.renderList();
+		this.events();
+	},
+
+	renderList: function() {
+		var context;
+
+		if (this.model.length) {
+			context = {
+				"data": {
+					loop: this.model
+				}
+			};
+		} else {
+			context = {
+				"data": this.model
+			};
+		}
+
+		$('#games-choose-container').html(Mustache.render(this.templates["list"], context));
+	},
+
+	serialize: function() {
+		return {
+			"secret": app.secret,
+			"id": $('#games-choose').val()
+		};
+	},
+
+	updateModel: function(model) {
+		this.model = model || this.model;
+		this.renderList();
 	},
 
 	empty: function() {
