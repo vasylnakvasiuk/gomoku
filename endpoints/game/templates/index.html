@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Gomoku</title>
+
+	<link rel="shortcut icon" type="image/png" href="/static/favicon.png" />
+	<link rel="stylesheet/less" type="text/css" href="/static/styles/app.less">
+
+	<script type="text/javascript" src="/static/scripts/vendor/sockjs-0.3.4.min.js"></script>
+	<script type="text/javascript" src="/static/scripts/vendor/websocket-multiplex-0.1.js"></script>
+	<script type="text/javascript" src="/static/scripts/vendor/jquery-2.0.3.min.js"></script>
+	<script type="text/javascript" src="/static/scripts/vendor/less-1.4.2.min.js"></script>
+	<script type="text/javascript" src="/static/scripts/vendor/mustache-0.7.2.js"></script>
+
+	<script type="text/javascript" src="/static/scripts/app.js"></script>
+</head>
+<body>
+	<div id="app">
+		<div id="pages">
+			<div id="error"></div>
+			<div id="nickname"></div>
+		</div>
+	</div>
+
+	<!-- Mustache templates -->
+	{% raw %}
+	<script id="tpl-error" type="text/template">
+		<ul>
+			{{#.}}
+			<li>{{.}}</li>
+			{{/.}}
+		</ul>
+	</script>
+
+	<script id="tpl-nickname" type="text/template">
+		<div class="page">
+			<label for="nickname-username">Nickname</label>
+			<input id="nickname-username" type="text" placeholder="Type your nickname…">
+		</div>
+	</script>
+	{% endraw %}
+	<!-- Mustache templates -->
+
+</body>
+</html>

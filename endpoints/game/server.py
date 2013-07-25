@@ -8,19 +8,21 @@ import tornado.ioloop
 import tornado.web
 import tornado.autoreload
 
+from jinja2 import Environment, FileSystemLoader
 from sockjs.tornado import SockJSRouter
+
 from multiplex import MultiplexConnection
-
 from connections import MultiParticipantsConnection, ChannelConnection
-
 from utils import rel
+import settings
 
 
 # Index page handler
 class IndexHandler(tornado.web.RequestHandler):
     """Regular HTTP handler to serve the chatroom page"""
     def get(self):
-        self.render('templates/base.html')
+        env = Environment(loader=FileSystemLoader(settings.TEMPLATE_PATH))
+        self.write(env.get_template('index.html').render())
 
 
 USERS = {}
@@ -28,7 +30,7 @@ GAMES = []
 
 
 # Connections
-class UsernameConnection(ChannelConnection, MultiParticipantsConnection):
+class UsernameChoiceConnection(ChannelConnection, MultiParticipantsConnection):
     def on_message(self, message):
         data = json.loads(message)
         username = data.get('username')
@@ -44,7 +46,7 @@ class UsernameConnection(ChannelConnection, MultiParticipantsConnection):
         else:
             answer = {
                 'status': 'error',
-                'errormsg': 'Someone already has that username.'
+                'errors': ['Someone already has that username.']
             }
         self.send(json.dumps(answer))
 
@@ -71,9 +73,11 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
 
     # Create multiplexer
-    router = MultiplexConnection.get(
-        username=UsernameConnection,
-        gamelist=GameListConnection)
+    channels = {
+        "username_choice": UsernameChoiceConnection,
+    }
+
+    router = MultiplexConnection.get(**channels)
 
     # Register multiplexer
     MainSocketRouter = SockJSRouter(router, '/socket')
@@ -85,7 +89,8 @@ if __name__ == '__main__':
             (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': rel('static')},),
         ] + MainSocketRouter.urls
     )
-    app.listen(8888)
+    app.listen(settings.PORT)
+
     io_loop = tornado.ioloop.IOLoop.instance()
     tornado.autoreload.start(io_loop)
     io_loop.start()
