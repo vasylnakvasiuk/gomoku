@@ -5,6 +5,8 @@ var multiplexer = new WebSocketMultiplex(sock);
 var usernameChoiceSock = multiplexer.channel('username_choice');
 var gamesListSock = multiplexer.channel('games_list');
 var gamesJoinSock = multiplexer.channel('games_join');
+var gameCreateSock = multiplexer.channel('game_create');
+
 
 $(function() {
 
@@ -64,13 +66,13 @@ app.view.nickname = {
 
 		usernameChoiceSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
-			if (obj.status == 'error'){
-				app.view.error.init(obj.errors);
-			}
-			else {
+			if (obj.status == 'ok'){
 				app.secret = obj.secret;
 				app.username = obj.username;
 				app.goto("games");
+			}
+			else {
+				app.view.error.init(obj.errors);
 			}
 		};
 
@@ -131,21 +133,21 @@ app.view.games = {
 		var self = this;
 		gamesListSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
-			if (obj.status == 'error'){
-				app.view.error.init(obj.errors);
+			if (obj.status == 'ok'){
+				self.updateModel(obj.games);
 			}
 			else {
-				self.updateModel(obj.games);
+				app.view.error.init(obj.errors);
 			}
 		};
 
 		gamesJoinSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
-			if (obj.status == 'error'){
-				app.view.error.init(obj.errors);
+			if (obj.status == 'ok'){
+				console.log("Go to the next...");
 			}
 			else {
-				console.log("Go to the next...");
+				app.view.error.init(obj.errors);
 			}
 		};
 
@@ -161,7 +163,7 @@ app.view.games = {
 		});
 
 		$('#games-create').click(function() {
-			console.log("Go to the next...");
+			app.goto("details");
 		});
 	},
 
@@ -199,6 +201,55 @@ app.view.games = {
 	updateModel: function(model) {
 		this.model = model || this.model;
 		this.renderList();
+	},
+
+	empty: function() {
+		this.el.empty();
+	}
+};
+
+// Detials view.
+app.view.details = {
+	el: $("#details"),
+	template: $("#tpl-details").html(),
+
+	init: function() {
+		this.render();
+
+		gameCreateSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			if (obj.status == 'ok'){
+				console.log("Go to the next...");
+			}
+			else {
+				app.view.error.init(obj.errors);
+			}
+		};
+	},
+
+	events: function() {
+		var self = this;
+
+		$('#details-create').click(function() {
+			gameCreateSock.send(
+				JSON.stringify(self.serialize())
+			);
+			console.log(self.serialize());
+		});
+	},
+
+	render: function() {
+		this.el.html(Mustache.render(this.template, {}));
+		this.events();
+	},
+
+	serialize: function() {
+		return {
+			"secret": app.secret,
+			"dimensions": $('#details-dimensions').val(),
+			"lineup": $('#details-lineup').val(),
+			"type": $('#details-type').val()
+		};
 	},
 
 	empty: function() {

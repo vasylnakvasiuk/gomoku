@@ -86,6 +86,23 @@ class GamesJoinConnection(ChannelConnection, MultiParticipantsConnection):
         self.send(json.dumps(answer))
 
 
+class GameCreateConnection(ChannelConnection, MultiParticipantsConnection):
+    def on_message(self, message):
+        data = json.loads(message)
+        secret = data.get('secret')
+
+        if secret and secret in USERS:
+            answer = {
+                'status': 'ok'
+            }
+        else:
+            answer = {
+                'status': 'error',
+                'errors': ['Wrong config for the game.']
+            }
+        self.send(json.dumps(answer))
+
+
 if __name__ == '__main__':
     import logging
     logging.getLogger().setLevel(logging.DEBUG)
@@ -94,7 +111,8 @@ if __name__ == '__main__':
     channels = {
         "username_choice": UsernameChoiceConnection,
         "games_list": GamesListConnection,
-        "games_join": GamesJoinConnection
+        "games_join": GamesJoinConnection,
+        "game_create": GameCreateConnection
     }
 
     router = MultiplexConnection.get(**channels)
