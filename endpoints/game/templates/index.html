@@ -17,6 +17,7 @@
 </head>
 <body>
 	<div id="app">
+		<div id="stats"></div>
 		<div id="pages">
 			<div id="error"></div>
 			<div id="nickname"></div>
@@ -27,6 +28,43 @@
 
 	<!-- Mustache templates -->
 	{% raw %}
+	<script id="tpl-stats" type="text/template">
+		<div id="stats-data"></div>
+		<button id="stats-toggle" title="Toggle statistics" type="button">Toggle</button>
+	</script>
+
+	<script id="tpl-stats-data" type="text/template">
+		<div>
+			{{#data}}
+			<table class="table">
+				<thead>
+				<tr>
+					<th>Name</th>
+					<th>Quantity</th>
+					<th>Wins</th>
+					<th>Losses</th>
+					<th>Draws</th>
+				</tr>
+				</thead>
+				<tbody>
+				{{#loop}}
+				<tr>
+					<td>{{name}}</td>
+					<td>{{quantity}}</td>
+					<td>{{wins}}</td>
+					<td>{{losses}}</td>
+					<td>{{draws}}</td>
+				</tr>
+				{{/loop}}
+				</tbody>
+			</table>
+			{{/data}}
+			{{^data}}
+			<p>No statistics :(</p>
+			{{/data}}
+		</div>
+	</script>
+
 	<script id="tpl-error" type="text/template">
 		<ul>
 			{{#.}}

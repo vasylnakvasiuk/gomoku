@@ -103,6 +103,34 @@ class GameCreateConnection(ChannelConnection, MultiParticipantsConnection):
         self.send(json.dumps(answer))
 
 
+class StatsConnection(ChannelConnection, MultiParticipantsConnection):
+    def on_message(self, message):
+        answer = [
+            {
+                'name': 'Vasia',
+                'quantity': 10,
+                'wins': 5,
+                'losses': 2,
+                'draws': 3
+            },
+            {
+                'name': 'Igor',
+                'quantity': 1,
+                'wins': 1,
+                'losses': 0,
+                'draws': 0
+            },
+            {
+                'name': 'Rob',
+                'quantity': 6,
+                'wins': 1,
+                'losses': 2,
+                'draws': 3
+            }
+        ]
+        self.send(json.dumps(answer))
+
+
 if __name__ == '__main__':
     import logging
     logging.getLogger().setLevel(logging.DEBUG)
@@ -112,7 +140,8 @@ if __name__ == '__main__':
         "username_choice": UsernameChoiceConnection,
         "games_list": GamesListConnection,
         "games_join": GamesJoinConnection,
-        "game_create": GameCreateConnection
+        "game_create": GameCreateConnection,
+        "stats": StatsConnection
     }
 
     router = MultiplexConnection.get(**channels)

@@ -6,6 +6,7 @@ var usernameChoiceSock = multiplexer.channel('username_choice');
 var gamesListSock = multiplexer.channel('games_list');
 var gamesJoinSock = multiplexer.channel('games_join');
 var gameCreateSock = multiplexer.channel('game_create');
+var statsSock = multiplexer.channel('stats');
 
 
 $(function() {
@@ -18,6 +19,7 @@ window.app = {
 	socket: null,
 
 	init: function() {
+		app.view.stats.init();
 		app.goto("nickname");
 	},
 
@@ -32,6 +34,88 @@ window.app = {
 	}
 };
 
+
+// Stats view.
+app.view.stats = {
+	el: $("#stats"),
+	templates: {
+		"main": $("#tpl-stats").html(),
+		"list": $("#tpl-stats-data").html()
+	},
+	model: [],
+
+	init: function(model) {
+		this.model = model || this.model;
+		this.render();
+
+		if (model !== undefined) {
+			this.updateModel(model);
+		} else {
+			statsSock.onopen = function(evt) {
+				statsSock.send("");
+			};
+		}
+
+		var self = this;
+		statsSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			self.updateModel(obj);
+		};
+	},
+
+	events: function() {
+		$('#stats-toggle').click(function() {
+			var clicks = $(this).data('clicks');
+			if (clicks) {
+				$('#stats-data').css("height", "0");
+			} else {
+				$('#stats-data').css("height", "auto");
+				$('#stats-data').css("overflow-y", "visible");
+			}
+			$(this).data("clicks", !clicks);
+		});
+
+		// Esc stats binding.
+		$(document).keyup(function(e) {
+			if(e.keyCode == 27) {
+				$('#stats-toggle').click();
+			}
+		});
+	},
+
+	render: function() {
+		$(this.el).html(Mustache.render(this.templates["main"], {}));
+		this.renderList();
+		this.events();
+	},
+
+	renderList: function() {
+		var context;
+
+		if (this.model.length) {
+			context = {
+				"data": {
+					loop: this.model
+				}
+			};
+		} else {
+			context = {
+				"data": this.model
+			};
+		}
+
+		$('#stats-data').html(Mustache.render(this.templates["list"], context));
+	},
+
+	updateModel: function(model) {
+		this.model = model || this.model;
+		this.renderList();
+	},
+
+	empty: function() {
+		$(this.el).empty();
+	}
+};
 
 // Error view.
 app.view.error = {
