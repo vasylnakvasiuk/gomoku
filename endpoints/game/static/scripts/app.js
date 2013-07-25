@@ -234,7 +234,6 @@ app.view.details = {
 			gameCreateSock.send(
 				JSON.stringify(self.serialize())
 			);
-			console.log(self.serialize());
 		});
 	},
 
