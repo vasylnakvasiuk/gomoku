@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import json
+
 from sockjs.tornado import SockJSConnection
 
 
@@ -39,3 +41,23 @@ class ChannelConnection(SockJSConnection):
         target_class = self.__class__
         targets = [i for i in self.participants if isinstance(i, target_class)]
         self.session.broadcast_channel(channel, targets, message)
+
+
+class ErrorConnection(SockJSConnection):
+    """Connection, for working with multiplex channels."""
+    def send_error(self, message):
+        if isinstance(message, list):
+            errors = message
+        else:
+            errors = [message]
+
+        self.send(json.dumps(
+            {
+                'status': 'error',
+                'errors': errors
+            }
+        ))
+
+
+class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnection):
+    pass

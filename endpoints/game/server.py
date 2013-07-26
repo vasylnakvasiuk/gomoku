@@ -7,14 +7,15 @@ from uuid import uuid4
 import tornado.ioloop
 import tornado.web
 import tornado.autoreload
+from tornado import gen
 
 from jinja2 import Environment, FileSystemLoader
 from sockjs.tornado import SockJSRouter
+from toredis import Client
 
 from multiplex import MultiplexConnection
-from connections import MultiParticipantsConnection, ChannelConnection
+from connections import BaseConnection
 from decorators import expect_json
-from exceptions import ErrorException
 from utils import rel
 import settings
 
@@ -32,25 +33,41 @@ GAMES = []
 
 
 # Connections
-class UsernameChoiceConnection(ChannelConnection, MultiParticipantsConnection):
+class UsernameChoiceConnection(BaseConnection):
+    username = None
+
+    @gen.engine
     @expect_json
     def on_message(self, message):
         username = message.get('username')
 
-        if username and username not in USERS.values():
+        is_member = yield gen.Task(redis.sismember, "players", username)
+
+        if not is_member:
             secret = md5(str(uuid4()).encode()).hexdigest()
-            USERS.update({secret: username})
+
+            yield gen.Task(redis.set, secret, username)
+            yield gen.Task(redis.sadd, 'players', username)
+
+            self.username = username
+            self.secret = secret
             answer = {
                 'status': 'ok',
                 'username': username,
                 'secret': secret
             }
+            self.send(json.dumps(answer))
         else:
-            raise ErrorException('Someone already has that username.')
-        self.send(json.dumps(answer))
+            self.send_error('Someone already has that username.')
+
+    @gen.engine
+    def on_close(self):
+        if self.username:
+            yield gen.Task(redis.delete, self.secret)
+            yield gen.Task(redis.srem, 'players', self.username)
 
 
-class GamesListConnection(ChannelConnection, MultiParticipantsConnection):
+class GamesListConnection(BaseConnection):
     @expect_json
     def on_message(self, message):
         secret = message.get('secret')
@@ -60,12 +77,12 @@ class GamesListConnection(ChannelConnection, MultiParticipantsConnection):
                 'status': 'ok',
                 'games': [{"id": 1, "title": "asf"}, {"id": 2, "title": "asf"}]
             }
+            self.send(json.dumps(answer))
         else:
-            raise ErrorException('Your secret key is wrong.')
-        self.send(json.dumps(answer))
+            self.send_error('Your secret key is wrong.')
 
 
-class GamesJoinConnection(ChannelConnection, MultiParticipantsConnection):
+class GamesJoinConnection(BaseConnection):
     @expect_json
     def on_message(self, message):
         secret = message.get('secret')
@@ -74,12 +91,12 @@ class GamesJoinConnection(ChannelConnection, MultiParticipantsConnection):
             answer = {
                 'status': 'ok'
             }
+            self.send(json.dumps(answer))
         else:
-            raise ErrorException('Can not connect to this game. Try another one.')
-        self.send(json.dumps(answer))
+            self.send_error('Can not connect to this game. Try another one.')
 
 
-class GameCreateConnection(ChannelConnection, MultiParticipantsConnection):
+class GameCreateConnection(BaseConnection):
     @expect_json
     def on_message(self, message):
         secret = message.get('secret')
@@ -88,12 +105,12 @@ class GameCreateConnection(ChannelConnection, MultiParticipantsConnection):
             answer = {
                 'status': 'ok'
             }
+            self.send(json.dumps(answer))
         else:
-            raise ErrorException('Wrong config for the game.')
-        self.send(json.dumps(answer))
+            self.send_error('Wrong config for the game.')
 
 
-class StatsConnection(ChannelConnection, MultiParticipantsConnection):
+class StatsConnection(BaseConnection):
     @expect_json
     def on_message(self, message):
         answer = [
@@ -148,6 +165,9 @@ if __name__ == '__main__':
         ] + MainSocketRouter.urls
     )
     app.listen(settings.PORT)
+
+    redis = Client()
+    redis.connect('localhost')
 
     io_loop = tornado.ioloop.IOLoop.instance()
     tornado.autoreload.start(io_loop)

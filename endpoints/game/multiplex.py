@@ -2,7 +2,6 @@
 
 from sockjs.tornado import SockJSConnection, session, proto
 from sockjs.tornado.transports import base
-from decorators import catch_exceptions
 
 
 class ChannelSession(session.BaseSession):
@@ -37,7 +36,6 @@ class ChannelSession(session.BaseSession):
 
         self.stats.on_pack_sent(count)
 
-    @catch_exceptions
     def on_message(self, msg):
         self.conn.on_message(msg)
 
