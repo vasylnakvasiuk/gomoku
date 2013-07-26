@@ -2,6 +2,7 @@
 
 from sockjs.tornado import SockJSConnection, session, proto
 from sockjs.tornado.transports import base
+from decorators import catch_exceptions
 
 
 class ChannelSession(session.BaseSession):
@@ -12,11 +13,9 @@ class ChannelSession(session.BaseSession):
         self.name = name
 
     def send_message(self, msg, stats=True, binary=False):
-        # TODO: Handle stats
         self.base.send('msg,{},{}'.format(self.name, msg))
 
     def send_message_channel(self, chan, msg, stats=True, binary=False):
-        # TODO: Handle stats
         self.base.send('msg,{},{}'.format(chan, msg))
 
     def broadcast_channel(self, chan, clients, msg):
@@ -38,6 +37,7 @@ class ChannelSession(session.BaseSession):
 
         self.stats.on_pack_sent(count)
 
+    @catch_exceptions
     def on_message(self, msg):
         self.conn.on_message(msg)
 

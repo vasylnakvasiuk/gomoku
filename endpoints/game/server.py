@@ -13,13 +13,15 @@ from sockjs.tornado import SockJSRouter
 
 from multiplex import MultiplexConnection
 from connections import MultiParticipantsConnection, ChannelConnection
+from decorators import expect_json
+from exceptions import ErrorException
 from utils import rel
 import settings
 
 
 # Index page handler
 class IndexHandler(tornado.web.RequestHandler):
-    """Regular HTTP handler to serve the chatroom page"""
+    """Regular HTTP handler to serve the index page."""
     def get(self):
         env = Environment(loader=FileSystemLoader(settings.TEMPLATE_PATH))
         self.write(env.get_template('index.html').render())
@@ -31,9 +33,9 @@ GAMES = []
 
 # Connections
 class UsernameChoiceConnection(ChannelConnection, MultiParticipantsConnection):
+    @expect_json
     def on_message(self, message):
-        data = json.loads(message)
-        username = data.get('username')
+        username = message.get('username')
 
         if username and username not in USERS.values():
             secret = md5(str(uuid4()).encode()).hexdigest()
@@ -44,17 +46,14 @@ class UsernameChoiceConnection(ChannelConnection, MultiParticipantsConnection):
                 'secret': secret
             }
         else:
-            answer = {
-                'status': 'error',
-                'errors': ['Someone already has that username.']
-            }
+            raise ErrorException('Someone already has that username.')
         self.send(json.dumps(answer))
 
 
 class GamesListConnection(ChannelConnection, MultiParticipantsConnection):
+    @expect_json
     def on_message(self, message):
-        data = json.loads(message)
-        secret = data.get('secret')
+        secret = message.get('secret')
 
         if secret and secret in USERS:
             answer = {
@@ -62,48 +61,40 @@ class GamesListConnection(ChannelConnection, MultiParticipantsConnection):
                 'games': [{"id": 1, "title": "asf"}, {"id": 2, "title": "asf"}]
             }
         else:
-            answer = {
-                'status': 'error',
-                'errors': ['Your secret key is wrong.']
-            }
+            raise ErrorException('Your secret key is wrong.')
         self.send(json.dumps(answer))
 
 
 class GamesJoinConnection(ChannelConnection, MultiParticipantsConnection):
+    @expect_json
     def on_message(self, message):
-        data = json.loads(message)
-        secret = data.get('secret')
+        secret = message.get('secret')
 
         if secret and secret in USERS:
             answer = {
                 'status': 'ok'
             }
         else:
-            answer = {
-                'status': 'error',
-                'errors': ['Can not connect to this game. Try another one.']
-            }
+            raise ErrorException('Can not connect to this game. Try another one.')
         self.send(json.dumps(answer))
 
 
 class GameCreateConnection(ChannelConnection, MultiParticipantsConnection):
+    @expect_json
     def on_message(self, message):
-        data = json.loads(message)
-        secret = data.get('secret')
+        secret = message.get('secret')
 
         if secret and secret in USERS:
             answer = {
                 'status': 'ok'
             }
         else:
-            answer = {
-                'status': 'error',
-                'errors': ['Wrong config for the game.']
-            }
+            raise ErrorException('Wrong config for the game.')
         self.send(json.dumps(answer))
 
 
 class StatsConnection(ChannelConnection, MultiParticipantsConnection):
+    @expect_json
     def on_message(self, message):
         answer = [
             {
