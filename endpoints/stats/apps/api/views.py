@@ -39,7 +39,7 @@ def save_player_stats(creator, opponent, winner):
 def round_save(request):
     ALLOWED_KEYS = [
         'creator', 'opponent', 'dimension', 'lineup',
-        'black_stone_owner', 'moves', 'winner']
+        'lead', 'moves', 'winner']
     data = request.json_post_data
 
     if set(ALLOWED_KEYS) != set(data.keys()):
@@ -49,8 +49,8 @@ def round_save(request):
     opponent, created = User.objects.get_or_create(username=data['opponent'])
     dimension = data['dimension']
     lineup = data['lineup']
-    black_stone_owner, created = User.objects.get_or_create(
-        username=data['black_stone_owner'])
+    lead, created = User.objects.get_or_create(
+        username=data['lead'])
     moves = data['moves']
 
     winner = None
@@ -63,7 +63,7 @@ def round_save(request):
 
     Round.objects.create(
         creator=creator, opponent=opponent, dimension=dimension,
-        lineup=lineup, black_stone_owner=black_stone_owner,
+        lineup=lineup, lead=lead,
         moves=moves, winner=winner)
 
     save_player_stats(creator, opponent, winner)
@@ -74,6 +74,15 @@ def round_save(request):
 @require_http_methods(["GET"])
 def player_top(request):
     count = int(request.GET.get('count', 10))
-    top = PlayerPosition.objects.order_by('-wins').values(
-        'player', 'wins', 'losses', 'draws')[:count]
-    return HttpResponse(json.dumps(list(top)), mimetype="application/json")
+    top = PlayerPosition.objects.order_by('-wins')[:count]
+    answer = [
+        {
+            'player': i.player.username,
+            'quantity': i.wins + i.losses + i.draws,
+            'wins': i.wins,
+            'losses': i.losses,
+            'draws': i.draws
+
+        } for i in top
+    ]
+    return HttpResponse(json.dumps(list(answer)), mimetype="application/json")

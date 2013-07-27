@@ -7,6 +7,7 @@ from uuid import uuid4
 import tornado.ioloop
 import tornado.web
 import tornado.autoreload
+import tornado.httpclient
 from tornado import gen
 
 from jinja2 import Environment, FileSystemLoader
@@ -46,8 +47,8 @@ class UsernameChoiceConnection(BaseConnection):
         if not is_member:
             secret = md5(str(uuid4()).encode()).hexdigest()
 
-            yield gen.Task(redis.set, secret, username)
-            yield gen.Task(redis.sadd, 'players', username)
+            yield gen.Task(redis.set, 'player:id:{}'.format(secret), username)
+            yield gen.Task(redis.sadd, 'player:all', username)
 
             self.username = username
             self.secret = secret
@@ -63,19 +64,36 @@ class UsernameChoiceConnection(BaseConnection):
     @gen.engine
     def on_close(self):
         if self.username:
-            yield gen.Task(redis.delete, self.secret)
-            yield gen.Task(redis.srem, 'players', self.username)
+            yield gen.Task(redis.delete, 'player:id:{}'.format(self.secret))
+            yield gen.Task(redis.srem, 'player:all', self.username)
 
 
 class GamesListConnection(BaseConnection):
+    @gen.engine
     @expect_json
     def on_message(self, message):
         secret = message.get('secret')
 
-        if secret and secret in USERS:
+        raw_data = yield gen.Task(redis.get, 'player:id:{}'.format(secret))
+        player = None
+        if raw_data:
+            player = raw_data.decode('utf-8')
+
+        if player:
+            games = []
+            keys = yield gen.Task(redis.keys, 'game:id:*')
+            for key in [i.decode('utf-8') for i in keys]:
+                title = yield gen.Task(redis.hget, key, 'title')
+                games.append(
+                    {
+                        'id': int(key.split(':')[2]),
+                        'title': title.decode('utf-8')
+                    }
+                )
+
             answer = {
                 'status': 'ok',
-                'games': [{"id": 1, "title": "asf"}, {"id": 2, "title": "asf"}]
+                'games': sorted(games, key=lambda obj: obj.get('id'))
             }
             self.send(json.dumps(answer))
         else:
@@ -97,46 +115,78 @@ class GamesJoinConnection(BaseConnection):
 
 
 class GameCreateConnection(BaseConnection):
+    @gen.engine
     @expect_json
     def on_message(self, message):
         secret = message.get('secret')
+        errors = []
 
-        if secret and secret in USERS:
+        raw_data = yield gen.Task(redis.get, 'player:id:{}'.format(secret))
+        player = None
+        if raw_data:
+            player = raw_data.decode('utf-8')
+
+        try:
+            dimensions = int(message.get("dimensions"))
+            lineup = int(message.get("lineup"))
+            color = message.get("color")
+        except ValueError:
+            errors.append('Wrong config for the game.')
+
+        if not errors and lineup > dimensions:
+            errors.append('Lineup must be less than dimensions.')
+
+        if not player:
+            errors.append('Problem with secret key.')
+
+        if not errors:
+            raw_data = yield gen.Task(redis.incr, 'game:counter')
+            game_counter = int(raw_data)
+
+            title = '{0} ({1}x{1}, {2} in row) [{3}]'.format(
+                player, dimensions, lineup, color
+            )
+            data = {
+                "creator": player,
+                "title": title,
+                "dimensions": dimensions,
+                "lineup": lineup,
+                "color": color
+            }
+            yield gen.Task(redis.hmset, 'game:id:{}'.format(game_counter), data)
+
             answer = {
                 'status': 'ok'
             }
             self.send(json.dumps(answer))
+
+            games = []
+            keys = yield gen.Task(redis.keys, 'game:id:*')
+            for key in [i.decode('utf-8') for i in keys]:
+                title = yield gen.Task(redis.hget, key, 'title')
+                games.append(
+                    {
+                        'id': int(key.split(':')[2]),
+                        'title': title.decode('utf-8')
+                    }
+                )
+
+            answer = {
+                'status': 'ok',
+                'games': sorted(games, key=lambda obj: obj.get('id'))
+            }
+            self.broadcast_all_channel("games_list", json.dumps(answer))
         else:
-            self.send_error('Wrong config for the game.')
+            self.send_error(errors)
 
 
 class StatsConnection(BaseConnection):
+    @gen.engine
     @expect_json
     def on_message(self, message):
-        answer = [
-            {
-                'name': 'Vasia',
-                'quantity': 10,
-                'wins': 5,
-                'losses': 2,
-                'draws': 3
-            },
-            {
-                'name': 'Igor',
-                'quantity': 1,
-                'wins': 1,
-                'losses': 0,
-                'draws': 0
-            },
-            {
-                'name': 'Rob',
-                'quantity': 6,
-                'wins': 1,
-                'losses': 2,
-                'draws': 3
-            }
-        ]
-        self.send(json.dumps(answer))
+        url = 'http://localhost:8000/api/player/top'
+        response = yield http_client.fetch(url, method="GET")
+        self.send(response.body.decode('utf-8'))
 
 
 if __name__ == '__main__':
@@ -168,6 +218,8 @@ if __name__ == '__main__':
 
     redis = Client()
     redis.connect('localhost')
+
+    http_client = tornado.httpclient.AsyncHTTPClient()
 
     io_loop = tornado.ioloop.IOLoop.instance()
     tornado.autoreload.start(io_loop)

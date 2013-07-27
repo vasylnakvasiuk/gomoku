@@ -16,8 +16,8 @@ class Round(models.Model):
     lineup = models.IntegerField(
         'Line Up', default=3,
         validators=[MinValueValidator(3)])
-    black_stone_owner = models.ForeignKey(
-        User, verbose_name='Black stone owner', related_name='black_stone_rounds')
+    lead = models.ForeignKey(
+        User, verbose_name='Black stone owner', related_name='lead_rounds')
     moves = models.IntegerField('Moves')
     winner = models.ForeignKey(
         User, verbose_name='Winner', related_name='win_rounds',

@@ -52,7 +52,7 @@ app.view.stats = {
 			this.updateModel(model);
 		} else {
 			statsSock.onopen = function(evt) {
-				statsSock.send("");
+				statsSock.send("{}");
 			};
 		}
 
@@ -331,7 +331,7 @@ app.view.details = {
 			"secret": app.secret,
 			"dimensions": $('#details-dimensions').val(),
 			"lineup": $('#details-lineup').val(),
-			"type": $('#details-type').val()
+			"color": $('#details-color').val()
 		};
 	},
 

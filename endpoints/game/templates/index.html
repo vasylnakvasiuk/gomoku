@@ -49,7 +49,7 @@
 				<tbody>
 				{{#loop}}
 				<tr>
-					<td>{{name}}</td>
+					<td>{{player}}</td>
 					<td>{{quantity}}</td>
 					<td>{{wins}}</td>
 					<td>{{losses}}</td>
@@ -97,7 +97,7 @@
 
 	<script id="tpl-games-choose-container" type="text/template">
 		{{#data}}
-		<select id="games-choose" size="8">
+		<select id="games-choose" size="10">
 			{{#loop}}
 			<option value="{{id}}">{{title}}</option>
 			{{/loop}}
@@ -113,8 +113,8 @@
 	<script id="tpl-details" type="text/template">
 		<div class="page">
 			<fieldset>
-				<label for="details-type">Color (Black plays first)</label>
-				<select id="details-type">
+				<label for="details-color">Color (Black plays first)</label>
+				<select id="details-color">
 					<option value="black">Black</option>
 					<option value="white">White</option>
 				</select>
