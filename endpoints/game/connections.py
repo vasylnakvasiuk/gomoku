@@ -24,9 +24,9 @@ class MultiParticipantsConnection(SockJSConnection):
         targets = [i for i in self.participants if isinstance(i, target_class)]
         self.broadcast(targets, message)
 
-    def on_close(self, info):
+    def on_close(self):
         self.participants.remove(self)
-        super().on_close(info)
+        super().on_close()
 
 
 class ChannelConnection(SockJSConnection):
@@ -72,26 +72,41 @@ class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnec
     """Base connection for working with sockets."""
 
     players = {}
-    username = None
 
-    def on_close(self, info):
-        self.remove_player(self.username)
-        super().on_close(info)
+    def on_close(self):
+        self.remove_player()
+        super().on_close()
 
     def create_player(self, username):
-        """Create player."""
+        """Create player for current connection."""
         self.username = username
         self.players[username] = self
 
-    def remove_player(self, username):
-        """Remove player."""
-        if self.username and self.username in self.players:
+    def remove_player(self):
+        """Remove player for current connection."""
+        if self.is_logged:
             del self.players[self.username]
             self.username = None
 
     def get_player(self, username):
-        """Get player."""
+        """Get player by username from all connections."""
         return self.players.get(username)
+
+    @property
+    def is_logged(self):
+        """Check player login status for current connection."""
+        return bool(self.username)
+
+    @property
+    def username(self):
+        if hasattr(self.session, 'base'):
+            return getattr(self.session.base, 'username', None)
+        return None
+
+    @username.setter
+    def username(self, value):
+        if hasattr(self.session, 'base'):
+            setattr(self.session.base, 'username', value)
 
     @gen.coroutine
     def get_games(self):

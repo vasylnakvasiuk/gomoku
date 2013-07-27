@@ -14,7 +14,7 @@ from sockjs.tornado import SockJSRouter
 
 from multiplex import MultiplexConnection
 from connections import BaseConnection
-from decorators import expect_json, secret_required
+from decorators import expect_json, login_required
 from utils import rel
 from clients import redis_client, http_client
 import settings
@@ -60,7 +60,7 @@ class UsernameChoiceConnection(BaseConnection):
 
     @gen.coroutine
     def on_close(self):
-        if self.username:
+        if self.is_logged:
             yield gen.Task(redis_client.delete, 'player:id:{}'.format(self.secret))
             yield gen.Task(redis_client.srem, 'player:all', self.username)
 
@@ -69,7 +69,7 @@ class GamesListConnection(BaseConnection):
     """Channel connection. Used for managing users."""
 
     @expect_json
-    @secret_required
+    @login_required
     @gen.coroutine
     def on_message(self, message):
         games = yield self.get_games()
@@ -78,7 +78,7 @@ class GamesListConnection(BaseConnection):
 
 class GamesJoinConnection(BaseConnection):
     @expect_json
-    @secret_required
+    @login_required
     @gen.coroutine
     def on_message(self, message):
         game_id = message.get('id')
@@ -112,7 +112,7 @@ class GamesJoinConnection(BaseConnection):
 
 class GameCreateConnection(BaseConnection):
     @expect_json
-    @secret_required
+    @login_required
     @gen.coroutine
     def on_message(self, message):
         errors = []
@@ -176,6 +176,7 @@ class StatsConnection(BaseConnection):
         url = 'http://localhost:8000/api/player/top'
         response = yield http_client.fetch(url, method="GET")
         self.send(response.body.decode('utf-8'))
+        super().on_open(info)
 
 
 class NoteConnection(BaseConnection):
@@ -183,6 +184,18 @@ class NoteConnection(BaseConnection):
 
 
 class GameActionConnection(BaseConnection):
+    @expect_json
+    @login_required
+    @gen.coroutine
+    def on_message(self, message):
+        self.send_channel('game_finish', json.dumps(
+            {
+                'winner': True
+            }
+        ))
+
+
+class GameFinishConnection(BaseConnection):
     pass
 
 
@@ -192,13 +205,14 @@ if __name__ == '__main__':
 
     # Create multiplexer
     channels = {
-        "username_choice": UsernameChoiceConnection,
-        "games_list": GamesListConnection,
-        "games_join": GamesJoinConnection,
-        "game_create": GameCreateConnection,
-        "stats": StatsConnection,
-        "note": NoteConnection,
-        "game_action": GameActionConnection
+        'username_choice': UsernameChoiceConnection,
+        'games_list': GamesListConnection,
+        'games_join': GamesJoinConnection,
+        'game_create': GameCreateConnection,
+        'stats': StatsConnection,
+        'note': NoteConnection,
+        'game_action': GameActionConnection,
+        'game_finish': GameFinishConnection
     }
 
     router = MultiplexConnection.get(**channels)

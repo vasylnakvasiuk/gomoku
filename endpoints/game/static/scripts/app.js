@@ -21,6 +21,7 @@ window.app = {
 		this.channel.statsSock = multiplexer.channel('stats');
 		this.channel.noteSock = multiplexer.channel('note');
 		this.channel.gameActionSock = multiplexer.channel('game_action');
+		this.channel.gameFinishSock = multiplexer.channel('game_finish');
 
 		app.view.stats.init();
 		app.goto("nickname");
@@ -367,6 +368,26 @@ app.view.game = {
 			else {
 				self.renderNote(obj.errors.join(', '));
 			}
+		};
+
+		app.channel.gameFinishSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			switch(obj.winner) {
+				case true: {
+					self.renderNote(
+						'You win! <a href="#" onclick="app.goto(\'games\'); return false;">Try again</a>.'
+					);
+					break;
+				}
+				case false: {
+					self.renderNote('You loose!');
+					break;
+				}
+				case null: {
+					self.renderNote('You loose!');
+					break;
+				}
+			};
 		};
 
 		var resizeTimerID;
