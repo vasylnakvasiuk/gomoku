@@ -379,17 +379,17 @@ app.view.game = {
 					self.renderNote(
 						'You win! <a href="#" onclick="app.goto(\'games\'); return false;">Try again</a>.'
 					);
-					break;
 				}
+				break;
 				case false: {
 					self.renderNote('You loose!');
-					break;
 				}
+				break;
 				case null: {
 					self.renderNote('You loose!');
-					break;
 				}
-			};
+				break;
+			}
 		};
 
 		var resizeTimerID;
