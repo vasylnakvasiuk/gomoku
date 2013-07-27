@@ -242,13 +242,6 @@ app.view.games = {
 		$('#games-create').click(function() {
 			app.goto("details");
 		});
-
-		// TODO
-		$("#details-dimensions, #details-lineup").keyup(function(e) {
-			if (e.keyCode == 13) {
-				$("#details-create").click();
-			}
-		});
 	},
 
 	render: function() {
@@ -318,6 +311,12 @@ app.view.details = {
 			app.channel.gameCreateSock.send(
 				JSON.stringify(self.serialize())
 			);
+		});
+
+		$("#details-dimensions, #details-lineup").keyup(function(e) {
+			if (e.keyCode == 13) {
+				$("#details-create").click();
+			}
 		});
 	},
 
