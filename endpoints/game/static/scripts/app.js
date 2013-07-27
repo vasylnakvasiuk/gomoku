@@ -1,14 +1,3 @@
-var sock_url = '/socket';
-var sock = new SockJS(sock_url);
-
-var multiplexer = new WebSocketMultiplex(sock);
-var usernameChoiceSock = multiplexer.channel('username_choice');
-var gamesListSock = multiplexer.channel('games_list');
-var gamesJoinSock = multiplexer.channel('games_join');
-var gameCreateSock = multiplexer.channel('game_create');
-var statsSock = multiplexer.channel('stats');
-
-
 $(function() {
 
 // Create app object for isolated scope/namespace.
@@ -17,8 +6,20 @@ window.app = {
 	view: {},
 	currentView: null,
 	socket: null,
+	channel: {},
 
 	init: function() {
+		var sock_url = '/socket';
+		this.sock = new SockJS(sock_url);
+
+		var multiplexer = new WebSocketMultiplex(this.sock);
+
+		this.channel.usernameChoiceSock = multiplexer.channel('username_choice');
+		this.channel.gamesListSock = multiplexer.channel('games_list');
+		this.channel.gamesJoinSock = multiplexer.channel('games_join');
+		this.channel.gameCreateSock = multiplexer.channel('game_create');
+		this.channel.statsSock = multiplexer.channel('stats');
+
 		app.view.stats.init();
 		app.goto("nickname");
 	},
@@ -48,14 +49,16 @@ app.view.stats = {
 		var self = this;
 
 		this.render();
-
-		statsSock.onmessage = function(evt) {
-			obj = $.parseJSON(evt.data);
-			self.updateModel(obj);
-		};
 	},
 
 	events: function() {
+		var self = this;
+
+		app.channel.statsSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			self.updateModel(obj);
+		};
+
 		$('#stats-toggle').click(function() {
 			var clicks = $(this).data('clicks');
 			if (clicks) {
@@ -139,8 +142,12 @@ app.view.nickname = {
 
 	init: function() {
 		this.render();
+	},
 
-		usernameChoiceSock.onmessage = function(evt) {
+	events: function() {
+		var self = this;
+
+		app.channel.usernameChoiceSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
 				app.secret = obj.secret;
@@ -152,14 +159,9 @@ app.view.nickname = {
 			}
 		};
 
-	},
-
-	events: function() {
-		var self = this;
-
 		$("#nickname-username").keyup(function(e) {
 			if (e.keyCode == 13) {
-				usernameChoiceSock.send(
+				app.channel.usernameChoiceSock.send(
 					JSON.stringify(self.serialize())
 				);
 			}
@@ -199,15 +201,18 @@ app.view.games = {
 		if (model !== undefined) {
 			this.updateModel(model);
 		} else {
-			gamesListSock.send(
+			app.channel.gamesListSock.send(
 				JSON.stringify(
 					{"secret": app.secret}
 				)
 			);
 		}
+	},
 
+	events: function() {
 		var self = this;
-		gamesListSock.onmessage = function(evt) {
+
+		app.channel.gamesListSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
 				self.updateModel(obj.games);
@@ -217,7 +222,7 @@ app.view.games = {
 			}
 		};
 
-		gamesJoinSock.onmessage = function(evt) {
+		app.channel.gamesJoinSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
 				console.log("Go to the next...");
@@ -227,19 +232,21 @@ app.view.games = {
 			}
 		};
 
-	},
-
-	events: function() {
-		var self = this;
-
 		$('#games-join').click(function() {
-			gamesJoinSock.send(
+			app.channel.gamesJoinSock.send(
 				JSON.stringify(self.serialize())
 			);
 		});
 
 		$('#games-create').click(function() {
 			app.goto("details");
+		});
+
+		// TODO
+		$("#details-dimensions, #details-lineup").keyup(function(e) {
+			if (e.keyCode == 13) {
+				$("#details-create").click();
+			}
 		});
 	},
 
@@ -291,8 +298,12 @@ app.view.details = {
 
 	init: function() {
 		this.render();
+	},
 
-		gameCreateSock.onmessage = function(evt) {
+	events: function() {
+		var self = this;
+
+		app.channel.gameCreateSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
 				console.log("Go to the next...");
@@ -301,13 +312,9 @@ app.view.details = {
 				app.view.error.init(obj.errors);
 			}
 		};
-	},
-
-	events: function() {
-		var self = this;
 
 		$('#details-create').click(function() {
-			gameCreateSock.send(
+			app.channel.gameCreateSock.send(
 				JSON.stringify(self.serialize())
 			);
 		});
