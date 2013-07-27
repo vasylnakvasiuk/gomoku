@@ -277,7 +277,7 @@ app.view.games = {
 	serialize: function() {
 		return {
 			"secret": app.secret,
-			"id": $('#games-choose').val()
+			"id": +$('#games-choose').val()
 		};
 	},
 

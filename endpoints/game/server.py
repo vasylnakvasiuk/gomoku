@@ -83,7 +83,9 @@ class GamesJoinConnection(BaseConnection):
     @secret_required
     @gen.coroutine
     def on_message(self, message):
-        if self.secret and self.secret in []:
+        game_id = message.get('id')
+
+        if True:
             answer = {
                 'status': 'ok'
             }
