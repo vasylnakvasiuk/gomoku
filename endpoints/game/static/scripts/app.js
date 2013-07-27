@@ -224,10 +224,11 @@ app.view.games = {
 		app.channel.gamesJoinSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
-				app.goto('game', obj.model);
+				app.goto('game', obj.game);
 			}
 			else {
 				app.view.error.init(obj.errors);
+				app.channel.gamesListSock.send('');
 			}
 		};
 
@@ -268,7 +269,7 @@ app.view.games = {
 
 	serialize: function() {
 		return {
-			"id": +$('#games-choose').val()
+			"game_id": +$('#games-choose').val()
 		};
 	},
 

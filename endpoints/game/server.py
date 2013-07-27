@@ -94,33 +94,67 @@ class GamesJoinConnection(BaseConnection):
     @login_required
     @gen.coroutine
     def on_message(self, message):
-        game_id = message.get('id')
+        errors = []
+        game_id = message.get('game_id')
 
-        if True:
-            model = {
-                'dimensions': 3,
-                'cells': [
-                    {'x': '2', 'y': '2', 'color': 'white'},
-                    {'x': '1', 'y': '1', 'color': 'black'},
-                    {'x': '4', 'y': '1', 'color': 'white'}
-                ]
+        raw_data = yield gen.Task(
+            redis_client.hmget, 'games:id:{}'.format(game_id),
+            ['dimensions', 'cells', 'creator', 'opponent', 'color']
+        )
+
+        if raw_data[0] is None:
+            errors.append('Wrong game id.')
+
+        if not errors:
+            dimensions = int(raw_data[0])
+            cells = json.loads(raw_data[1].decode('utf-8'))
+            creator = raw_data[2].decode('utf-8')
+            opponent = raw_data[3] and raw_data[3].decode('utf-8')
+            color = raw_data[4].decode('utf-8')
+
+            if opponent is not None:
+                errors.append('Game is already started.')
+
+            if self.username == creator:
+                errors.append("You can't play with youself.")
+
+        if not errors:
+            opponent = self.username
+            yield gen.Task(
+                redis_client.hset, 'games:id:{}'.format(game_id),
+                'opponent', opponent
+            )
+
+            game = {
+                'game_id': game_id,
+                'dimensions': dimensions,
+                'cells': cells
             }
 
-            answer = {
+            self.send(json.dumps({
                 'status': 'ok',
-                'model': model
-            }
-            self.send(json.dumps(answer))
+                'game': game
+            }))
+
+            if color == 'black':
+                opponent_msg = 'You stone is white.'
+                creator_msg = 'You stone is black, and now your turn.'
+            else:
+                creator_msg = 'You stone is white.'
+                opponent_msg = 'You stone is black, and now your turn.'
+
             self.send_channel(
                 'note',
-                json.dumps({'msg': 'Welcome to the game #{}'.format(game_id)})
+                json.dumps({'msg': 'Welcome to the game #{}. {}'.format(
+                    game_id, opponent_msg)})
             )
-            self.get_player('vaxXxa').send_channel(
+            self.get_player(creator).send_channel(
                 'note',
-                json.dumps({'msg': 'New user!!!'})
+                json.dumps({'msg': 'Joining new user "{}". {}'.format(
+                    opponent, creator_msg)})
             )
         else:
-            self.send_error('Can not connect to this game. Try another one.')
+            self.send_error(errors)
 
 
 class GameCreateConnection(BaseConnection):
@@ -138,6 +172,15 @@ class GameCreateConnection(BaseConnection):
                 errors.append('Wrong config for the game.')
         except ValueError:
             errors.append('Wrong config for the game.')
+
+        if not errors and not (3 <= dimensions <= 30):
+            errors.append('Dimensions must be from 3 to 30.')
+
+        if not errors and not (3 <= lineup <= 30):
+            errors.append('Lineup must be from 3 to 30.')
+
+        if not errors and color not in ['black', 'white']:
+            errors.append('Color must be "black" or "white".')
 
         if not errors and lineup > dimensions:
             errors.append('Lineup must be less than dimensions.')
