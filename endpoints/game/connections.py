@@ -24,6 +24,10 @@ class MultiParticipantsConnection(SockJSConnection):
         targets = [i for i in self.participants if isinstance(i, target_class)]
         self.broadcast(targets, message)
 
+    def on_close(self, info):
+        self.participants.remove(self)
+        super().on_close(info)
+
 
 class ChannelConnection(SockJSConnection):
     """Connection, for working with multiplex channels."""
@@ -66,6 +70,28 @@ class ErrorConnection(SockJSConnection):
 
 class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnection):
     """Base connection for working with sockets."""
+
+    players = {}
+    username = None
+
+    def on_close(self, info):
+        self.remove_player(self.username)
+        super().on_close(info)
+
+    def create_player(self, username):
+        """Create player."""
+        self.username = username
+        self.players[username] = self
+
+    def remove_player(self, username):
+        """Remove player."""
+        if self.username and self.username in self.players:
+            del self.players[self.username]
+            self.username = None
+
+    def get_player(self, username):
+        """Get player."""
+        return self.players.get(username)
 
     @gen.coroutine
     def get_games(self):

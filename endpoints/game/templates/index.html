@@ -23,6 +23,7 @@
 			<div id="nickname"></div>
 			<div id="games"></div>
 			<div id="details"></div>
+			<div id="game"></div>
 		</div>
 	</div>
 
@@ -129,6 +130,17 @@
 					<button id="details-create" type="button" class="btn">Create</button>
 				</div>
 			</fieldset>
+		</div>
+	</script>
+
+	<script id="tpl-game" type="text/template">
+		<div class="page">
+			<div id="game-note"></div>
+			<div id="game-field">
+				{{#.}}
+				<div data-coordinates="{{.}}"></div>
+				{{/.}}
+			</div>
 		</div>
 	</script>
 	{% endraw %}

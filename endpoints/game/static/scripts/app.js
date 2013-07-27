@@ -19,6 +19,8 @@ window.app = {
 		this.channel.gamesJoinSock = multiplexer.channel('games_join');
 		this.channel.gameCreateSock = multiplexer.channel('game_create');
 		this.channel.statsSock = multiplexer.channel('stats');
+		this.channel.noteSock = multiplexer.channel('note');
+		this.channel.gameActionSock = multiplexer.channel('game_action');
 
 		app.view.stats.init();
 		app.goto("nickname");
@@ -47,7 +49,6 @@ app.view.stats = {
 
 	init: function() {
 		var self = this;
-
 		this.render();
 	},
 
@@ -79,7 +80,7 @@ app.view.stats = {
 	},
 
 	render: function() {
-		$(this.el).html(Mustache.render(this.templates["main"], {}));
+		this.el.html(Mustache.render(this.templates["main"], {}));
 		this.renderList();
 		this.events();
 	},
@@ -108,7 +109,7 @@ app.view.stats = {
 	},
 
 	empty: function() {
-		$(this.el).empty();
+		this.el.empty();
 	}
 };
 
@@ -225,7 +226,7 @@ app.view.games = {
 		app.channel.gamesJoinSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
-				console.log("Go to the next...");
+				app.goto('game', obj.model);
 			}
 			else {
 				app.view.error.init(obj.errors);
@@ -306,7 +307,7 @@ app.view.details = {
 		app.channel.gameCreateSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
-				console.log("Go to the next...");
+				app.goto('game', obj.model);
 			}
 			else {
 				app.view.error.init(obj.errors);
@@ -338,6 +339,108 @@ app.view.details = {
 		this.el.empty();
 	}
 };
+
+// Game view.
+app.view.game = {
+	el: $("#game"),
+	template: $("#tpl-game").html(),
+	model: {},
+
+	init: function(model) {
+		this.model = model || this.model;
+		this.render();
+	},
+
+	events: function() {
+		var self = this;
+
+		app.channel.noteSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			self.renderNote(obj.msg);
+		};
+
+		app.channel.gameActionSock.onmessage = function(evt) {
+			obj = $.parseJSON(evt.data);
+			if (obj.status == 'ok'){
+				stone = {"x": "2", "y": "2", "color": "white"};
+				self.putStone(stone);
+			}
+			else {
+				self.renderNote(obj.errors.join(', '));
+			}
+		};
+
+		var resizeTimerID;
+		$(window).resize(function() {
+			clearTimeout(resizeTimerID);
+			resizeTimerID = setTimeout(self.setCellSize, 100);
+		});
+
+		$('[data-coordinates]:not([class])').click(function() {
+			app.channel.gameActionSock.send(
+				JSON.stringify({
+					'secret': app.secret,
+					'gameid': 100,
+					'x': 3,
+					'y': 3
+				})
+			);
+		});
+	},
+
+	render: function() {
+		var cells = [];
+		for(var y = 1; y <= this.model.dimensions; y++) {
+			for(var x = 1; x <= this.model.dimensions; x++) {
+				cells.push(x + ":" + y);
+			}
+		}
+
+		this.el.html(Mustache.render(this.template, cells));
+
+		for(var i = 0; i < this.model.cells.length; i++) {
+			var cell = this.model.cells[i];
+			this.putStone(cell);
+		}
+
+		this.setCellSize();
+		this.events();
+	},
+
+	setCellSize: function() {
+		// hack: redefine context (setTimeout set its own)
+		var self = app.view.game;
+
+		var width = $("#game-field").closest(".page").width();
+		var size = Math.floor(width / self.model.dimensions);
+		$("#game-field").width(size * self.model.dimensions);
+		$('[data-coordinates]').css({
+			"width": size,
+			"height": size
+		});
+	},
+
+	putStone: function(stone) {
+		$('[data-coordinates="'+ stone.x + ":" + stone.y +'"]').addClass(stone.color);
+	},
+
+	renderNote: function(text) {
+		$('#game-note').html(text);
+	},
+
+	serialize: function(elem) {
+		var coordinates = $(elem).attr("data-coordinates").split(":");
+		return {
+			"x": coordinates[0],
+			"y": coordinates[1]
+		};
+	},
+
+	empty: function() {
+		this.el.empty();
+	}
+};
+
 
 // Initialize app.
 app.init();

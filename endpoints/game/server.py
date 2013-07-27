@@ -31,8 +31,6 @@ class IndexHandler(tornado.web.RequestHandler):
 # Connections
 class UsernameChoiceConnection(BaseConnection):
     """Channel connection. Used for managing users."""
-    username = None
-
     @expect_json
     @gen.coroutine
     def on_message(self, message):
@@ -41,7 +39,7 @@ class UsernameChoiceConnection(BaseConnection):
         is_member = yield gen.Task(redis_client.sismember, "player:all", username)
 
         if not is_member:
-            self.username = username
+            self.create_player(username)
             self.secret = md5(str(uuid4()).encode()).hexdigest()
 
             yield gen.Task(
@@ -86,10 +84,28 @@ class GamesJoinConnection(BaseConnection):
         game_id = message.get('id')
 
         if True:
+            model = {
+                'dimensions': 3,
+                'cells': [
+                    {'x': '2', 'y': '2', 'color': 'white'},
+                    {'x': '1', 'y': '1', 'color': 'black'},
+                    {'x': '4', 'y': '1', 'color': 'white'}
+                ]
+            }
+
             answer = {
-                'status': 'ok'
+                'status': 'ok',
+                'model': model
             }
             self.send(json.dumps(answer))
+            self.send_channel(
+                'note',
+                json.dumps({'msg': 'Welcome to the game #{}'.format(game_id)})
+            )
+            self.get_player('vaxXxa').send_channel(
+                'note',
+                json.dumps({'msg': 'New user!!!'})
+            )
         else:
             self.send_error('Can not connect to this game. Try another one.')
 
@@ -127,13 +143,29 @@ class GameCreateConnection(BaseConnection):
             }
             yield gen.Task(redis_client.hmset, 'game:id:{}'.format(game_counter), data)
 
-            answer = {
-                'status': 'ok'
+            model = {
+                'dimensions': dimensions,
+                'cells': [
+                    {'x': '2', 'y': '2', 'color': 'white'},
+                    {'x': '1', 'y': '1', 'color': 'black'},
+                    {'x': '4', 'y': '1', 'color': 'white'}
+                ]
             }
+
+            answer = {
+                'status': 'ok',
+                'model': model
+            }
+
             self.send(json.dumps(answer))
 
             games = yield self.get_games()
+
             self.broadcast_all_channel("games_list", games)
+            self.send_channel(
+                'note',
+                json.dumps({'msg': 'Waiting for the opponent...'})
+            )
         else:
             self.send_error(errors)
 
@@ -146,6 +178,14 @@ class StatsConnection(BaseConnection):
         self.send(response.body.decode('utf-8'))
 
 
+class NoteConnection(BaseConnection):
+    pass
+
+
+class GameActionConnection(BaseConnection):
+    pass
+
+
 if __name__ == '__main__':
     import logging
     logging.getLogger().setLevel(logging.DEBUG)
@@ -156,7 +196,9 @@ if __name__ == '__main__':
         "games_list": GamesListConnection,
         "games_join": GamesJoinConnection,
         "game_create": GameCreateConnection,
-        "stats": StatsConnection
+        "stats": StatsConnection,
+        "note": NoteConnection,
+        "game_action": GameActionConnection
     }
 
     router = MultiplexConnection.get(**channels)
