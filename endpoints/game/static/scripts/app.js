@@ -350,6 +350,7 @@ app.view.game = {
 
 	init: function(model) {
 		this.model = model || this.model;
+		this.live = true;
 		this.render();
 	},
 
@@ -363,7 +364,7 @@ app.view.game = {
 
 		app.channel.gameActionSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
-			if (obj.status == 'ok'){
+			if (obj.status == 'ok' && self.live){
 				stone = {"x": "2", "y": "2", "color": "white"};
 				self.putStone(stone);
 			}
@@ -390,6 +391,8 @@ app.view.game = {
 				}
 				break;
 			}
+			$('#game-field').animate({"opacity": 0.3}, "slow");
+			self.live = false;
 		};
 
 		var resizeTimerID;
@@ -399,14 +402,16 @@ app.view.game = {
 		});
 
 		$('[data-coordinates]:not([class])').click(function() {
-			app.channel.gameActionSock.send(
-				JSON.stringify({
-					'secret': app.secret,
-					'gameid': 100,
-					'x': 3,
-					'y': 3
-				})
-			);
+			if (self.live){
+				app.channel.gameActionSock.send(
+					JSON.stringify({
+						'secret': app.secret,
+						'gameid': 100,
+						'x': 3,
+						'y': 3
+					})
+				);
+			}
 		});
 	},
 
