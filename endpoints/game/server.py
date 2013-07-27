@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import json
-from hashlib import md5
-from uuid import uuid4
 
 import tornado.ioloop
 import tornado.web
@@ -36,23 +34,26 @@ class UsernameChoiceConnection(BaseConnection):
     def on_message(self, message):
         username = message.get('username')
 
-        is_member = yield gen.Task(redis_client.sismember, "player:all", username)
+        is_member = yield gen.Task(redis_client.sismember, "players:all", username)
 
         if not is_member:
+            # Logging in.
             self.create_player(username)
-            self.secret = md5(str(uuid4()).encode()).hexdigest()
+
+            raw_data = yield gen.Task(redis_client.incr, 'players:counter')
+            self.user_id = int(raw_data)
 
             yield gen.Task(
                 redis_client.set,
-                'player:id:{}'.format(self.secret),
+                'players:id:{}'.format(self.user_id),
                 self.username
             )
-            yield gen.Task(redis_client.sadd, 'player:all', self.username)
+            yield gen.Task(redis_client.sadd, 'players:all', self.username)
 
             answer = {
                 'status': 'ok',
                 'username': self.username,
-                'secret': self.secret
+                'user_id': self.user_id
             }
             self.send(json.dumps(answer))
         else:
@@ -61,14 +62,13 @@ class UsernameChoiceConnection(BaseConnection):
     @gen.coroutine
     def on_close(self):
         if self.is_logged:
-            yield gen.Task(redis_client.delete, 'player:id:{}'.format(self.secret))
-            yield gen.Task(redis_client.srem, 'player:all', self.username)
+            yield gen.Task(redis_client.delete, 'players:id:{}'.format(self.user_id))
+            yield gen.Task(redis_client.srem, 'players:all', self.username)
 
 
 class GamesListConnection(BaseConnection):
     """Channel connection. Used for managing users."""
 
-    @expect_json
     @login_required
     @gen.coroutine
     def on_message(self, message):
@@ -121,6 +121,8 @@ class GameCreateConnection(BaseConnection):
             dimensions = int(message.get("dimensions"))
             lineup = int(message.get("lineup"))
             color = message.get("color")
+            if not dimensions or not lineup or not color:
+                errors.append('Wrong config for the game.')
         except ValueError:
             errors.append('Wrong config for the game.')
 
@@ -128,40 +130,39 @@ class GameCreateConnection(BaseConnection):
             errors.append('Lineup must be less than dimensions.')
 
         if not errors:
-            raw_data = yield gen.Task(redis_client.incr, 'game:counter')
-            game_counter = int(raw_data)
+            raw_data = yield gen.Task(redis_client.incr, 'games:counter')
+            game_id = int(raw_data)
 
             title = '{0} ({1}x{1}, {2} in row) [{3}]'.format(
                 self.username, dimensions, lineup, color
             )
             data = {
                 "creator": self.username,
-                "title": title,
                 "dimensions": dimensions,
                 "lineup": lineup,
-                "color": color
+                "color": color,
+                "cells": []
             }
-            yield gen.Task(redis_client.hmset, 'game:id:{}'.format(game_counter), data)
+            yield gen.Task(
+                redis_client.hmset, 'games:id:{}'.format(game_id), data)
+            yield gen.Task(
+                redis_client.sadd, 'games:all',
+                '{}:{}'.format(game_id, title))
 
-            model = {
+            game = {
+                'game_id': game_id,
                 'dimensions': dimensions,
-                'cells': [
-                    {'x': '2', 'y': '2', 'color': 'white'},
-                    {'x': '1', 'y': '1', 'color': 'black'},
-                    {'x': '4', 'y': '1', 'color': 'white'}
-                ]
+                'cells': []
             }
 
-            answer = {
+            self.send(json.dumps({
                 'status': 'ok',
-                'model': model
-            }
-
-            self.send(json.dumps(answer))
+                'game': game
+            }))
 
             games = yield self.get_games()
-
             self.broadcast_all_channel("games_list", games)
+
             self.send_channel(
                 'note',
                 json.dumps({'msg': 'Waiting for the opponent...'})

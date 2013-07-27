@@ -89,7 +89,9 @@ class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnec
             self.username = None
 
     def get_player(self, username):
-        """Get player by username from all connections."""
+        """Get player by username from all connections on the
+        current server.
+        """
         return self.players.get(username)
 
     @property
@@ -112,16 +114,12 @@ class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnec
     def get_games(self):
         """Return serialized list of games."""
         games = []
-        keys = yield gen.Task(redis_client.keys, 'game:id:*')
-        # TODO: improve these multi queries.
-        for key in [i.decode('utf-8') for i in keys]:
-            title = yield gen.Task(redis_client.hget, key, 'title')
-            games.append(
-                {
-                    'id': int(key.split(':')[2]),
-                    'title': title.decode('utf-8')
-                }
-            )
+        raw_data = yield gen.Task(redis_client.smembers, 'games:all')
+        for game_id, title in [i.decode('utf-8').split(":", 1) for i in raw_data]:
+            games.append({
+                'game_id': int(game_id),
+                'title': title
+            })
 
         answer = {
             'status': 'ok',

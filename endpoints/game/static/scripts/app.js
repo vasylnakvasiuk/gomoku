@@ -152,7 +152,7 @@ app.view.nickname = {
 		app.channel.usernameChoiceSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
-				app.secret = obj.secret;
+				app.user_id = obj.user_id;
 				app.username = obj.username;
 				app.goto("games");
 			}
@@ -204,11 +204,7 @@ app.view.games = {
 		if (model !== undefined) {
 			this.updateModel(model);
 		} else {
-			app.channel.gamesListSock.send(
-				JSON.stringify(
-					{"secret": app.secret}
-				)
-			);
+			app.channel.gamesListSock.send('');
 		}
 	},
 
@@ -272,7 +268,6 @@ app.view.games = {
 
 	serialize: function() {
 		return {
-			"secret": app.secret,
 			"id": +$('#games-choose').val()
 		};
 	},
@@ -302,7 +297,7 @@ app.view.details = {
 		app.channel.gameCreateSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
-				app.goto('game', obj.model);
+				app.goto('game', obj.game);
 			}
 			else {
 				app.view.error.init(obj.errors);
@@ -330,7 +325,6 @@ app.view.details = {
 
 	serialize: function() {
 		return {
-			"secret": app.secret,
 			"dimensions": $('#details-dimensions').val(),
 			"lineup": $('#details-lineup').val(),
 			"color": $('#details-color').val()
@@ -405,7 +399,6 @@ app.view.game = {
 			if (self.live){
 				app.channel.gameActionSock.send(
 					JSON.stringify({
-						'secret': app.secret,
 						'gameid': 100,
 						'x': 3,
 						'y': 3
