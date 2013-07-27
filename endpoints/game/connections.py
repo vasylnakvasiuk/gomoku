@@ -2,12 +2,16 @@
 
 import json
 
+from tornado import gen
 from sockjs.tornado import SockJSConnection
+
+from clients import redis_client
 
 
 class MultiParticipantsConnection(SockJSConnection):
     """Connection, which save participants and support additional
-    methods for working with participants."""
+    methods for working with participants.
+    """
     participants = set()
 
     def on_open(self, info):
@@ -30,7 +34,8 @@ class ChannelConnection(SockJSConnection):
 
     def broadcast_channel(self, channel, clients, message):
         """Broadcast message to some participants for the specific
-        channel."""
+        channel.
+        """
         self.session.broadcast_channel(channel, clients, message)
 
     def broadcast_all_channel(self, channel, message):
@@ -60,4 +65,26 @@ class ErrorConnection(SockJSConnection):
 
 
 class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnection):
-    pass
+    """Base connection for working with sockets."""
+
+    @gen.coroutine
+    def get_games(self):
+        """Return serialized list of games."""
+        games = []
+        keys = yield gen.Task(redis_client.keys, 'game:id:*')
+        # TODO: improve these multi queries.
+        for key in [i.decode('utf-8') for i in keys]:
+            title = yield gen.Task(redis_client.hget, key, 'title')
+            games.append(
+                {
+                    'id': int(key.split(':')[2]),
+                    'title': title.decode('utf-8')
+                }
+            )
+
+        answer = {
+            'status': 'ok',
+            'games': sorted(games, key=lambda obj: obj.get('id'))
+        }
+        # TODO: is it ok to use return?
+        return json.dumps(answer)

@@ -44,19 +44,11 @@ app.view.stats = {
 	},
 	model: [],
 
-	init: function(model) {
-		this.model = model || this.model;
+	init: function() {
+		var self = this;
+
 		this.render();
 
-		if (model !== undefined) {
-			this.updateModel(model);
-		} else {
-			statsSock.onopen = function(evt) {
-				statsSock.send("{}");
-			};
-		}
-
-		var self = this;
 		statsSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			self.updateModel(obj);

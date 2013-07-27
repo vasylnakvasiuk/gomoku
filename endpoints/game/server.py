@@ -7,17 +7,16 @@ from uuid import uuid4
 import tornado.ioloop
 import tornado.web
 import tornado.autoreload
-import tornado.httpclient
 from tornado import gen
 
 from jinja2 import Environment, FileSystemLoader
 from sockjs.tornado import SockJSRouter
-from toredis import Client
 
 from multiplex import MultiplexConnection
 from connections import BaseConnection
-from decorators import expect_json
+from decorators import expect_json, secret_required
 from utils import rel
+from clients import redis_client, http_client
 import settings
 
 
@@ -29,83 +28,62 @@ class IndexHandler(tornado.web.RequestHandler):
         self.write(env.get_template('index.html').render())
 
 
-USERS = {}
-GAMES = []
-
-
 # Connections
 class UsernameChoiceConnection(BaseConnection):
+    """Channel connection. Used for managing users."""
     username = None
 
-    @gen.engine
     @expect_json
+    @gen.coroutine
     def on_message(self, message):
         username = message.get('username')
 
-        is_member = yield gen.Task(redis.sismember, "players", username)
+        is_member = yield gen.Task(redis_client.sismember, "player:all", username)
 
         if not is_member:
-            secret = md5(str(uuid4()).encode()).hexdigest()
-
-            yield gen.Task(redis.set, 'player:id:{}'.format(secret), username)
-            yield gen.Task(redis.sadd, 'player:all', username)
-
             self.username = username
-            self.secret = secret
+            self.secret = md5(str(uuid4()).encode()).hexdigest()
+
+            yield gen.Task(
+                redis_client.set,
+                'player:id:{}'.format(self.secret),
+                self.username
+            )
+            yield gen.Task(redis_client.sadd, 'player:all', self.username)
+
             answer = {
                 'status': 'ok',
-                'username': username,
-                'secret': secret
+                'username': self.username,
+                'secret': self.secret
             }
             self.send(json.dumps(answer))
         else:
             self.send_error('Someone already has that username.')
 
-    @gen.engine
+    @gen.coroutine
     def on_close(self):
         if self.username:
-            yield gen.Task(redis.delete, 'player:id:{}'.format(self.secret))
-            yield gen.Task(redis.srem, 'player:all', self.username)
+            yield gen.Task(redis_client.delete, 'player:id:{}'.format(self.secret))
+            yield gen.Task(redis_client.srem, 'player:all', self.username)
 
 
 class GamesListConnection(BaseConnection):
-    @gen.engine
+    """Channel connection. Used for managing users."""
+
     @expect_json
+    @secret_required
+    @gen.coroutine
     def on_message(self, message):
-        secret = message.get('secret')
-
-        raw_data = yield gen.Task(redis.get, 'player:id:{}'.format(secret))
-        player = None
-        if raw_data:
-            player = raw_data.decode('utf-8')
-
-        if player:
-            games = []
-            keys = yield gen.Task(redis.keys, 'game:id:*')
-            for key in [i.decode('utf-8') for i in keys]:
-                title = yield gen.Task(redis.hget, key, 'title')
-                games.append(
-                    {
-                        'id': int(key.split(':')[2]),
-                        'title': title.decode('utf-8')
-                    }
-                )
-
-            answer = {
-                'status': 'ok',
-                'games': sorted(games, key=lambda obj: obj.get('id'))
-            }
-            self.send(json.dumps(answer))
-        else:
-            self.send_error('Your secret key is wrong.')
+        games = yield self.get_games()
+        self.send(games)
 
 
 class GamesJoinConnection(BaseConnection):
     @expect_json
+    @secret_required
+    @gen.coroutine
     def on_message(self, message):
-        secret = message.get('secret')
-
-        if secret and secret in USERS:
+        if self.secret and self.secret in []:
             answer = {
                 'status': 'ok'
             }
@@ -115,16 +93,11 @@ class GamesJoinConnection(BaseConnection):
 
 
 class GameCreateConnection(BaseConnection):
-    @gen.engine
     @expect_json
+    @secret_required
+    @gen.coroutine
     def on_message(self, message):
-        secret = message.get('secret')
         errors = []
-
-        raw_data = yield gen.Task(redis.get, 'player:id:{}'.format(secret))
-        player = None
-        if raw_data:
-            player = raw_data.decode('utf-8')
 
         try:
             dimensions = int(message.get("dimensions"))
@@ -136,54 +109,36 @@ class GameCreateConnection(BaseConnection):
         if not errors and lineup > dimensions:
             errors.append('Lineup must be less than dimensions.')
 
-        if not player:
-            errors.append('Problem with secret key.')
-
         if not errors:
-            raw_data = yield gen.Task(redis.incr, 'game:counter')
+            raw_data = yield gen.Task(redis_client.incr, 'game:counter')
             game_counter = int(raw_data)
 
             title = '{0} ({1}x{1}, {2} in row) [{3}]'.format(
-                player, dimensions, lineup, color
+                self.username, dimensions, lineup, color
             )
             data = {
-                "creator": player,
+                "creator": self.username,
                 "title": title,
                 "dimensions": dimensions,
                 "lineup": lineup,
                 "color": color
             }
-            yield gen.Task(redis.hmset, 'game:id:{}'.format(game_counter), data)
+            yield gen.Task(redis_client.hmset, 'game:id:{}'.format(game_counter), data)
 
             answer = {
                 'status': 'ok'
             }
             self.send(json.dumps(answer))
 
-            games = []
-            keys = yield gen.Task(redis.keys, 'game:id:*')
-            for key in [i.decode('utf-8') for i in keys]:
-                title = yield gen.Task(redis.hget, key, 'title')
-                games.append(
-                    {
-                        'id': int(key.split(':')[2]),
-                        'title': title.decode('utf-8')
-                    }
-                )
-
-            answer = {
-                'status': 'ok',
-                'games': sorted(games, key=lambda obj: obj.get('id'))
-            }
-            self.broadcast_all_channel("games_list", json.dumps(answer))
+            games = yield self.get_games()
+            self.broadcast_all_channel("games_list", games)
         else:
             self.send_error(errors)
 
 
 class StatsConnection(BaseConnection):
-    @gen.engine
-    @expect_json
-    def on_message(self, message):
+    @gen.coroutine
+    def on_open(self, info):
         url = 'http://localhost:8000/api/player/top'
         response = yield http_client.fetch(url, method="GET")
         self.send(response.body.decode('utf-8'))
@@ -215,11 +170,6 @@ if __name__ == '__main__':
         ] + MainSocketRouter.urls
     )
     app.listen(settings.PORT)
-
-    redis = Client()
-    redis.connect('localhost')
-
-    http_client = tornado.httpclient.AsyncHTTPClient()
 
     io_loop = tornado.ioloop.IOLoop.instance()
     tornado.autoreload.start(io_loop)
