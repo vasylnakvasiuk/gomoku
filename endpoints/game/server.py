@@ -66,6 +66,19 @@ class UsernameChoiceConnection(BaseConnection):
             yield gen.Task(redis_client.srem, 'players:all', self.username)
 
 
+class StatsConnection(BaseConnection):
+    @gen.coroutine
+    def on_open(self, info):
+        url = 'http://localhost:8000/api/player/top'
+        response = yield http_client.fetch(url, method="GET")
+        self.send(response.body.decode('utf-8'))
+        super().on_open(info)
+
+
+class NoteConnection(BaseConnection):
+    pass
+
+
 class GamesListConnection(BaseConnection):
     """Channel connection. Used for managing users."""
 
@@ -171,19 +184,6 @@ class GameCreateConnection(BaseConnection):
             self.send_error(errors)
 
 
-class StatsConnection(BaseConnection):
-    @gen.coroutine
-    def on_open(self, info):
-        url = 'http://localhost:8000/api/player/top'
-        response = yield http_client.fetch(url, method="GET")
-        self.send(response.body.decode('utf-8'))
-        super().on_open(info)
-
-
-class NoteConnection(BaseConnection):
-    pass
-
-
 class GameActionConnection(BaseConnection):
     @expect_json
     @login_required
@@ -207,11 +207,11 @@ if __name__ == '__main__':
     # Create multiplexer
     channels = {
         'username_choice': UsernameChoiceConnection,
+        'stats': StatsConnection,
+        'note': NoteConnection,
         'games_list': GamesListConnection,
         'games_join': GamesJoinConnection,
         'game_create': GameCreateConnection,
-        'stats': StatsConnection,
-        'note': NoteConnection,
         'game_action': GameActionConnection,
         'game_finish': GameFinishConnection
     }

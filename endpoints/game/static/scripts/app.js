@@ -15,11 +15,11 @@ window.app = {
 		var multiplexer = new WebSocketMultiplex(this.sock);
 
 		this.channel.usernameChoiceSock = multiplexer.channel('username_choice');
+		this.channel.statsSock = multiplexer.channel('stats');
+		this.channel.noteSock = multiplexer.channel('note');
 		this.channel.gamesListSock = multiplexer.channel('games_list');
 		this.channel.gamesJoinSock = multiplexer.channel('games_join');
 		this.channel.gameCreateSock = multiplexer.channel('game_create');
-		this.channel.statsSock = multiplexer.channel('stats');
-		this.channel.noteSock = multiplexer.channel('note');
 		this.channel.gameActionSock = multiplexer.channel('game_action');
 		this.channel.gameFinishSock = multiplexer.channel('game_finish');
 
