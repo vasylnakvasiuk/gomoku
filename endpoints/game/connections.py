@@ -123,7 +123,7 @@ class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnec
 
         answer = {
             'status': 'ok',
-            'games': sorted(games, key=lambda obj: obj.get('id'))
+            'games': sorted(games, key=lambda obj: obj.get('game_id'))
         }
         # TODO: is it ok to use return?
         return json.dumps(answer)
