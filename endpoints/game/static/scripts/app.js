@@ -172,6 +172,7 @@ app.view.nickname = {
 
 	render: function() {
 		this.el.html(Mustache.render(this.template, {}));
+		$('#nickname-username').focus();
 		this.events();
 	},
 
@@ -323,6 +324,7 @@ app.view.details = {
 
 	render: function() {
 		this.el.html(Mustache.render(this.template, {}));
+		$('#details-color').focus();
 		this.events();
 	},
 
