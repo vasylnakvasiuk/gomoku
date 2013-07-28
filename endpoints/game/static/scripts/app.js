@@ -360,8 +360,8 @@ app.view.game = {
 		app.channel.gameActionSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
-				stone = {"x": "2", "y": "2", "color": "white"};
-				self.putStone(stone);
+				aaa = {"x": "2", "y": "2", "color": "white"};
+				self.putStone(obj.turn);
 			}
 			else {
 				self.renderNote(obj.errors.join(', '));
@@ -397,11 +397,12 @@ app.view.game = {
 		});
 
 		$('[data-coordinates]:not([class])').click(function() {
+			coordinates = $(this).data('coordinates').split(':');
 			app.channel.gameActionSock.send(
 				JSON.stringify({
-					'gameid': 100,
-					'x': 3,
-					'y': 3
+					'game_id': self.model.game_id,
+					'x': +coordinates[0],
+					'y': +coordinates[1]
 				})
 			);
 		});

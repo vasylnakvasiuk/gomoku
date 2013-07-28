@@ -7,6 +7,7 @@ from tornado import gen
 from base_connections import BaseConnection
 from decorators import expect_json, login_required
 from clients import redis_client, http_client
+from utils import hgetall_group_by
 
 
 class UsernameChoiceConnection(BaseConnection):
@@ -104,10 +105,7 @@ class GamesJoinConnection(BaseConnection):
 
         if not errors:
             opponent = self.username
-            yield gen.Task(
-                redis_client.hset, 'games:id:{}'.format(game_id),
-                'opponent', opponent
-            )
+            data_to_save = {'opponent': opponent}
 
             game = {
                 'game_id': game_id,
@@ -121,11 +119,17 @@ class GamesJoinConnection(BaseConnection):
             }))
 
             if color == 'black':
+                data_to_save.update({'turn': creator})
                 opponent_msg = 'You stone is white.'
                 creator_msg = 'You stone is black, and now your turn.'
             else:
+                data_to_save.update({'turn': opponent})
                 creator_msg = 'You stone is white.'
                 opponent_msg = 'You stone is black, and now your turn.'
+
+            yield gen.Task(
+                redis_client.hmset, 'games:id:{}'.format(game_id), data_to_save
+            )
 
             self.send_channel(
                 'note',
@@ -177,12 +181,13 @@ class GameCreateConnection(BaseConnection):
                 self.username, dimensions, lineup, color
             )
             data = {
-                "creator": self.username,
-                "dimensions": dimensions,
-                "lineup": lineup,
-                "color": color,
-                "cells": []
+                'creator': self.username,
+                'dimensions': dimensions,
+                'lineup': lineup,
+                'color': color,
+                'cells': []
             }
+
             yield gen.Task(
                 redis_client.hmset, 'games:id:{}'.format(game_id), data)
             yield gen.Task(
@@ -216,11 +221,26 @@ class GameActionConnection(BaseConnection):
     @login_required
     @gen.coroutine
     def on_message(self, message):
-        self.send_channel('game_finish', json.dumps(
-            {
-                'winner': True
+        errors = []
+        game_id = message.get('game_id')
+
+        raw_data = yield gen.Task(
+            redis_client.hgetall, 'games:id:{}'.format(game_id)
+        )
+        data = hgetall_group_by(raw_data)
+        self.send(json.dumps({
+            'status': 'ok',
+            'turn': {
+                'x': message['x'],
+                'y': message['y'],
+                'color': 'black'
             }
-        ))
+        }))
+        # self.send_channel('game_finish', json.dumps(
+        #     {
+        #         'winner': True
+        #     }
+        # ))
 
 
 class GameFinishConnection(BaseConnection):

@@ -100,12 +100,7 @@
 		{{#data}}
 		<select id="games-choose" size="10">
 			{{#loop}}
-			{{#first}}
-				<option value="{{game_id}}" selected="selected">{{title}}</option>
-			{{/first}}
-			{{^first}}
-				<option value="{{game_id}}">{{title}}</option>
-			{{/first}}
+				<option value="{{game_id}}"{{#first}} selected="selected"{{/first}}>{{title}}</option>
 			{{/loop}}
 		</select>
 		{{/data}}
