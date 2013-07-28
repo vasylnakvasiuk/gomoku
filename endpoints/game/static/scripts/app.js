@@ -361,7 +361,7 @@ app.view.game = {
 			obj = $.parseJSON(evt.data);
 			if (obj.status == 'ok'){
 				aaa = {"x": "2", "y": "2", "color": "white"};
-				self.putStone(obj.turn);
+				self.putStone(obj.action);
 			}
 			else {
 				self.renderNote(obj.errors.join(', '));

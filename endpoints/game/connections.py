@@ -8,7 +8,7 @@ from base_connections import BaseConnection
 from decorators import expect_json, login_required
 from clients import redis_client, http_client
 from utils import hgetall_group_by
-
+from play import Game
 
 class UsernameChoiceConnection(BaseConnection):
     """Channel connection. Used for managing users."""
@@ -67,7 +67,7 @@ class GamesJoinConnection(BaseConnection):
 
         raw_data = yield gen.Task(
             redis_client.hmget, 'games:id:{}'.format(game_id),
-            ['dimensions', 'cells', 'creator', 'opponent', 'color']
+            ['dimensions', 'matrix', 'creator', 'opponent', 'color']
         )
 
         if raw_data[0] is None:
@@ -75,7 +75,7 @@ class GamesJoinConnection(BaseConnection):
 
         if not errors:
             dimensions = int(raw_data[0])
-            cells = json.loads(raw_data[1].decode('utf-8'))
+            matrix = json.loads(raw_data[1].decode('utf-8'))
             creator = raw_data[2].decode('utf-8')
             opponent = raw_data[3] and raw_data[3].decode('utf-8')
             color = raw_data[4].decode('utf-8')
@@ -93,7 +93,7 @@ class GamesJoinConnection(BaseConnection):
             game = {
                 'game_id': game_id,
                 'dimensions': dimensions,
-                'cells': cells
+                'cells': Game(matrix, dimensions).serialize_cells()
             }
 
             self.send(json.dumps({
@@ -168,7 +168,7 @@ class GameCreateConnection(BaseConnection):
                 'dimensions': dimensions,
                 'lineup': lineup,
                 'color': color,
-                'cells': []
+                'matrix': []
             }
 
             yield gen.Task(
@@ -210,26 +210,60 @@ class GameActionConnection(BaseConnection):
         raw_data = yield gen.Task(
             redis_client.hgetall, 'games:id:{}'.format(game_id)
         )
-        data = hgetall_group_by(raw_data)
-        self.send(json.dumps({
-            'status': 'ok',
-            'turn': {
-                'x': message['x'],
-                'y': message['y'],
-                'color': 'black'
-            }
-        }))
-        self.get_player(data['opponent']).send_channel(
-            'game_action',
-            json.dumps({
-                'status': 'ok',
-                'turn': {
-                    'x': message['x'],
-                    'y': message['y'],
-                    'color': 'black'
-                }
-            })
-        )
+        if not raw_data:
+            errors.append('This game not existed or already finished.')
+
+        if not errors:
+            data = hgetall_group_by(raw_data)
+
+        if not errors and 'opponent' not in data:
+            errors.append('Need opponent to join to the game.')
+
+        if not errors:
+            creator = data['creator']
+            opponent = data['opponent']
+            dimensions = int(data['dimensions'])
+            lineup = int(data['lineup'])
+            color = data['color']
+            turn = data['turn']
+            matrix = json.loads(data['matrix'])
+
+        if not errors and self.username not in [creator, opponent]:
+            errors.append("You are not participant of this game.")
+
+        if not errors and self.username != turn:
+            errors.append(
+                "It's not you turn. Please, wait for your opponent's move.")
+
+        if not errors:
+            game = Game(matrix, dimensions, lineup)
+
+            if self.username == creator:
+                action_color = color
+            else:
+                action_color = 'white' if color == 'black' else 'black'
+
+            action = game.action(message['x'], message['y'], action_color)
+
+            yield gen.Task(
+                redis_client.hset, 'games:id:{}'.format(game_id),
+                'turn', opponent if turn == creator else creator
+            )
+
+            for username in [opponent, creator]:
+                self.get_player(username).send_channel(
+                    'game_action',
+                    json.dumps({
+                        'status': 'ok',
+                        'action': {
+                            'x': message['x'],
+                            'y': message['y'],
+                            'color': action_color
+                        }
+                    })
+                )
+        else:
+            self.send_error(errors)
         # self.send_channel('game_finish', json.dumps(
         #     {
         #         'winner': True
