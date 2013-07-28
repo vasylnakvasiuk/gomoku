@@ -233,7 +233,7 @@ class GameActionConnection(BaseConnection):
 
         if not errors and self.username != turn:
             errors.append(
-                "It's not you turn. Please, wait for your opponent's move.")
+                "It's not your turn. Please, wait for your opponent's move.")
 
         if not errors:
             game = Game(matrix, dimensions, lineup)
@@ -245,13 +245,15 @@ class GameActionConnection(BaseConnection):
 
             action = game.action(message['x'], message['y'], action_color)
 
+            turn = opponent if turn == creator else creator
             yield gen.Task(
                 redis_client.hset, 'games:id:{}'.format(game_id),
-                'turn', opponent if turn == creator else creator
+                'turn', turn
             )
 
             for username in [opponent, creator]:
-                self.get_player(username).send_channel(
+                player = self.get_player(username)
+                player.send_channel(
                     'game_action',
                     json.dumps({
                         'status': 'ok',
@@ -262,6 +264,13 @@ class GameActionConnection(BaseConnection):
                         }
                     })
                 )
+
+                if turn == username:
+                    msg = "Now it's your turn."
+                else:
+                    msg = "Now it's a {}'s turn. Waiting...".format(
+                        opponent if username == creator else creator)
+                player.send_channel('note', json.dumps({'msg': msg}))
         else:
             self.send_error(errors)
         # self.send_channel('game_finish', json.dumps(

@@ -387,7 +387,7 @@ app.view.game = {
 				break;
 			}
 			$('#game-field').animate({"opacity": 0.3}, "slow");
-			$('[data-coordinates]:not([class])').unbind('click');
+			$('[data-coordinates]:not([class])').off('click');
 		};
 
 		var resizeTimerID;
@@ -396,7 +396,7 @@ app.view.game = {
 			resizeTimerID = setTimeout(self.setCellSize, 100);
 		});
 
-		$('[data-coordinates]:not([class])').click(function() {
+		$('[data-coordinates]:not([class])').on('click', function() {
 			coordinates = $(this).data('coordinates').split(':');
 			app.channel.gameActionSock.send(
 				JSON.stringify({
@@ -442,6 +442,7 @@ app.view.game = {
 
 	putStone: function(stone) {
 		$('[data-coordinates="'+ stone.x + ":" + stone.y +'"]').addClass(stone.color);
+		$('[data-coordinates="'+ stone.x + ":" + stone.y +'"]').off('click');
 	},
 
 	renderNote: function(text) {
