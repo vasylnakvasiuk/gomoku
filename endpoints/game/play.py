@@ -26,16 +26,16 @@ class Game:
         try:
             stone = self.get_cell(x, y)
         except IndexError:
-            return False
+            return False, None
 
         if stone is not None:
-            return False
+            return False, None
 
         self.set_cell(x, y, color)
-        return True
-
-    def is_lineuped(self, color):
-        pass
+        print(self.matrix)
+        print()
+        print(x, y, color)
+        return True, self.status(x, y, color)
 
     def is_filled(self):
         for row in self.matrix:
@@ -44,23 +44,27 @@ class Game:
                     return False
         return True
 
-    def is_finished(self):
-        """Return tuple (is_finish, finished_status).
-        If game is finished, finished_status can be:
-            0 - win 0 (white)
-            1 - win 1 (black)
-            None - draw
-        """
-        if self.is_lineuped(0):
-            return True, 0
+    def is_lineup(self, x, y, color):
+        count = 0
+        for i in self.matrix[y - 1]:
+            if i == color:
+                count += 1
+                if count == self.dimensions:
+                    return True
+            else:
+                count = 0
 
-        if self.is_lineuped(1):
-            return True, 1
+        return False
+
+    def status(self, x, y, color):
+        """Return 'win', 'draw', None."""
+        # if self.is_lineup(x, y, color):
+        #     return 'win'
 
         if self.is_filled():
-            return True, None
+            return 'draw'
 
-        return False, None
+        return None
 
     def serialize_cells(self):
         result = []

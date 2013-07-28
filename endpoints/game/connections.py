@@ -257,7 +257,7 @@ class GameActionConnection(BaseConnection):
                 'white': 0,
                 'black': 1
             }
-            action = game.action(
+            action, status = game.action(
                 message['x'], message['y'], color_dict[action_color])
             if not action:
                 errors.append('Bad action.')
@@ -295,11 +295,15 @@ class GameActionConnection(BaseConnection):
         else:
             self.send_error(errors)
 
-        if game.is_finished():
+        if status is not None:
             for username in [opponent, creator]:
                 player = self.get_player(username)
+                if status == 'draw':
+                    winner = None
+                else:
+                    winner = self.username == username
                 player.send_channel(
-                    'game_finish', json.dumps({'winner': None})
+                    'game_finish', json.dumps({'winner': winner})
                 )
 
 
