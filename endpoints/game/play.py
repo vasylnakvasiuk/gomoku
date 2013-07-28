@@ -9,7 +9,7 @@ class Game:
     """
     def __init__(self, matrix=None, dimensions=None, lineup=None):
         if not matrix:
-            self.matrix = [[None] * dimensions] * dimensions
+            self.matrix = [[None] * dimensions for i in range(dimensions)]
         else:
             self.matrix = matrix
 
@@ -27,8 +27,29 @@ class Game:
             'white': 0,
             'black': 1
         }
+
+        try:
+            stone = self.get_cell(x, y)
+        except IndexError:
+            return False
+
+        if stone is not None:
+            return False
+
         self.set_cell(x, y, color_dict[color])
         return True
+
+    def is_filled(self):
+        for row in self.matrix:
+            for stone in row:
+                if stone is None:
+                    return False
+        return True
+
+    def is_finished(self):
+        if self.is_filled():
+            return True
+        return False
 
     def serialize_cells(self):
         result = []

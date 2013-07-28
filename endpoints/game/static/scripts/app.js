@@ -373,16 +373,20 @@ app.view.game = {
 			switch(obj.winner) {
 				case true: {
 					self.renderNote(
-						'You win! <a href="#" onclick="app.goto(\'games\'); return false;">Try again</a>.'
+						'Congratulations! You won! <a href="#" onclick="app.goto(\'games\'); return false;">Try again</a>.'
 					);
 				}
 				break;
 				case false: {
-					self.renderNote('You loose!');
+					self.renderNote(
+						'You lose! <a href="#" onclick="app.goto(\'games\'); return false;">Try again</a>.'
+					);
 				}
 				break;
 				case null: {
-					self.renderNote('You loose!');
+					self.renderNote(
+						'Draw! <a href="#" onclick="app.goto(\'games\'); return false;">Try again</a>.'
+					);
 				}
 				break;
 			}

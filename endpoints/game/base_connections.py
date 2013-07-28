@@ -86,9 +86,7 @@ class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnec
 
         yield gen.Task(
             redis_client.set,
-            'players:id:{}'.format(self.user_id),
-            username
-        )
+            'players:id:{}'.format(self.user_id), username)
         yield gen.Task(redis_client.sadd, 'players:all', username)
 
         self.players[username] = self

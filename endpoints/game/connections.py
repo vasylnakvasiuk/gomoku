@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import json
-
+import re
 from tornado import gen
 
 from base_connections import BaseConnection
@@ -9,6 +9,9 @@ from decorators import expect_json, login_required
 from clients import redis_client, http_client
 from utils import hgetall_group_by
 from play import Game
+
+reg = re.compile(r'^[a-zA-Z0-9_.-]+$')
+
 
 class UsernameChoiceConnection(BaseConnection):
     """Channel connection. Used for managing users."""
@@ -20,7 +23,7 @@ class UsernameChoiceConnection(BaseConnection):
         is_member = yield gen.Task(
             redis_client.sismember, "players:all", username)
 
-        if not is_member:
+        if reg.match(username) and not is_member:
             # Logging in.
             yield self.create_player(username)
 
@@ -31,7 +34,7 @@ class UsernameChoiceConnection(BaseConnection):
             }
             self.send(json.dumps(answer))
         else:
-            self.send_error('Someone already has that username.')
+            self.send_error('Bad username or someone already has this one.')
 
 
 class StatsConnection(BaseConnection):
@@ -67,7 +70,7 @@ class GamesJoinConnection(BaseConnection):
 
         raw_data = yield gen.Task(
             redis_client.hmget, 'games:id:{}'.format(game_id),
-            ['dimensions', 'matrix', 'creator', 'opponent', 'color']
+            ['dimensions', 'matrix', 'creator', 'opponent', 'color', 'lineup']
         )
 
         if raw_data[0] is None:
@@ -79,6 +82,7 @@ class GamesJoinConnection(BaseConnection):
             creator = raw_data[2].decode('utf-8')
             opponent = raw_data[3] and raw_data[3].decode('utf-8')
             color = raw_data[4].decode('utf-8')
+            lineup = raw_data[5].decode('utf-8')
 
             if opponent is not None:
                 errors.append('Game is already started.')
@@ -111,19 +115,25 @@ class GamesJoinConnection(BaseConnection):
                 opponent_msg = 'You stone is black, and now your turn.'
 
             yield gen.Task(
-                redis_client.hmset, 'games:id:{}'.format(game_id), data_to_save
-            )
+                redis_client.hmset, 'games:id:{}'.format(game_id),
+                data_to_save)
+
+            title = '{0} ({1}x{1}, {2} in row) [{3}]'.format(
+                creator, dimensions, lineup, color)
+            yield gen.Task(
+                redis_client.srem, 'games:all',
+                '{}:{}'.format(game_id, title))
+            games = yield self.get_games()
+            self.broadcast_all_channel("games_list", games)
 
             self.send_channel(
                 'note',
                 json.dumps({'msg': 'Welcome to the game #{}. {}'.format(
-                    game_id, opponent_msg)})
-            )
+                    game_id, opponent_msg)}))
             self.get_player(creator).send_channel(
                 'note',
                 json.dumps({'msg': 'Joining new user "{}". {}'.format(
-                    opponent, creator_msg)})
-            )
+                    opponent, creator_msg)}))
         else:
             self.send_error(errors)
 
@@ -244,13 +254,19 @@ class GameActionConnection(BaseConnection):
                 action_color = 'white' if color == 'black' else 'black'
 
             action = game.action(message['x'], message['y'], action_color)
+            if not action:
+                errors.append('Bad action.')
 
+        if not errors:
             turn = opponent if turn == creator else creator
             yield gen.Task(
                 redis_client.hset, 'games:id:{}'.format(game_id),
-                'turn', turn
-            )
+                'turn', turn)
+            yield gen.Task(
+                redis_client.hset, 'games:id:{}'.format(game_id),
+                'matrix', json.dumps(game.matrix))
 
+        if not errors:
             for username in [opponent, creator]:
                 player = self.get_player(username)
                 player.send_channel(
@@ -273,11 +289,13 @@ class GameActionConnection(BaseConnection):
                 player.send_channel('note', json.dumps({'msg': msg}))
         else:
             self.send_error(errors)
-        # self.send_channel('game_finish', json.dumps(
-        #     {
-        #         'winner': True
-        #     }
-        # ))
+
+        if game.is_finished():
+            for username in [opponent, creator]:
+                player = self.get_player(username)
+                player.send_channel(
+                    'game_finish', json.dumps({'winner': None})
+                )
 
 
 class GameFinishConnection(BaseConnection):
