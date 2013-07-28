@@ -22,17 +22,7 @@ class UsernameChoiceConnection(BaseConnection):
 
         if not is_member:
             # Logging in.
-            self.create_player(username)
-
-            raw_data = yield gen.Task(redis_client.incr, 'players:counter')
-            self.user_id = int(raw_data)
-
-            yield gen.Task(
-                redis_client.set,
-                'players:id:{}'.format(self.user_id),
-                self.username
-            )
-            yield gen.Task(redis_client.sadd, 'players:all', self.username)
+            yield self.create_player(username)
 
             answer = {
                 'status': 'ok',
@@ -42,13 +32,6 @@ class UsernameChoiceConnection(BaseConnection):
             self.send(json.dumps(answer))
         else:
             self.send_error('Someone already has that username.')
-
-    @gen.coroutine
-    def on_close(self):
-        if self.is_logged:
-            yield gen.Task(
-                redis_client.delete, 'players:id:{}'.format(self.user_id))
-            yield gen.Task(redis_client.srem, 'players:all', self.username)
 
 
 class StatsConnection(BaseConnection):

@@ -73,18 +73,34 @@ class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnec
 
     players = {}
 
+    @gen.coroutine
     def on_close(self):
-        self.remove_player()
         super().on_close()
+        yield self.remove_player()
 
+    @gen.coroutine
     def create_player(self, username):
         """Create player for current connection."""
-        self.username = username
-        self.players[username] = self
+        raw_data = yield gen.Task(redis_client.incr, 'players:counter')
+        self.user_id = int(raw_data)
 
+        yield gen.Task(
+            redis_client.set,
+            'players:id:{}'.format(self.user_id),
+            username
+        )
+        yield gen.Task(redis_client.sadd, 'players:all', username)
+
+        self.players[username] = self
+        self.username = username
+
+    @gen.coroutine
     def remove_player(self):
         """Remove player for current connection."""
         if self.is_logged:
+            yield gen.Task(
+                redis_client.delete, 'players:id:{}'.format(self.user_id))
+            yield gen.Task(redis_client.srem, 'players:all', self.username)
             del self.players[self.username]
             self.username = None
 
