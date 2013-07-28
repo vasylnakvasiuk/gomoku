@@ -42,6 +42,7 @@ class Game:
         return True
 
     def is_lineup(self, x, y, color):
+        # Horizontal roundtrip.
         count = 0
         for obj in self.matrix[y - 1]:
             if obj == color:
@@ -51,14 +52,42 @@ class Game:
             else:
                 count = 0
 
+        # Vertical roundtrip.
         count = 0
-        for i in range(self.dimensions):
-            if self.matrix[i][x - 1] == color:
+        for i in range(1, self.dimensions + 1):
+            if self.get_cell(i, y) == color:
                 count += 1
                 if count == self.lineup:
                     return True
             else:
                 count = 0
+
+        # Diagonal roundtrip.
+        # Intersection with left side.
+        x1, y1 = 1, x + y - 1
+        # Intersection with downside.
+        x2, y2 = x + y - self.dimensions, self.dimensions
+
+        if y1 <= self.dimensions:
+            pos_x = x1
+            pos_y = y1
+        else:
+            pos_x = x2
+            pos_y = y2
+
+        count = 0
+        while (pos_x <= self.dimensions) and (pos_y <= self.dimensions):
+            if self.get_cell(pos_x, pos_y) == color:
+                count += 1
+                if count == self.lineup:
+                    return True
+            else:
+                count = 0
+
+            pos_x += 1
+            pos_y -= 1
+
+        # Anti-diagonal roundtrip.
 
         return False
 
@@ -77,11 +106,9 @@ class Game:
         for y, row in enumerate(self.matrix):
             for x, stone in enumerate(row):
                 if stone is not None:
-                    result.append(
-                        {
-                            'x': x + 1,
-                            'y': y + 1,
-                            'color': 'black' if stone == 1 else 'white'
-                        }
-                    )
+                    result.append({
+                        'x': x + 1,
+                        'y': y + 1,
+                        'color': 'black' if stone == 1 else 'white'
+                    })
         return result
