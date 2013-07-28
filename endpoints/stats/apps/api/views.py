@@ -39,7 +39,7 @@ def save_player_stats(creator, opponent, winner):
 def round_save(request):
     ALLOWED_KEYS = [
         'creator', 'opponent', 'dimension', 'lineup',
-        'lead', 'moves', 'winner']
+        'lead', 'winner']
     data = request.json_post_data
 
     if set(ALLOWED_KEYS) != set(data.keys()):
@@ -51,7 +51,6 @@ def round_save(request):
     lineup = data['lineup']
     lead, created = User.objects.get_or_create(
         username=data['lead'])
-    moves = data['moves']
 
     winner = None
     if data['winner']:
@@ -63,8 +62,7 @@ def round_save(request):
 
     Round.objects.create(
         creator=creator, opponent=opponent, dimension=dimension,
-        lineup=lineup, lead=lead,
-        moves=moves, winner=winner)
+        lineup=lineup, lead=lead, winner=winner)
 
     save_player_stats(creator, opponent, winner)
 

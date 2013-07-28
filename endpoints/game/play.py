@@ -7,13 +7,13 @@ class Game:
         1 - black stone
         None - empty cell
     """
-    def __init__(self, matrix=None, dimensions=None, lineup=None):
+    def __init__(self, matrix=None, dimension=None, lineup=None):
         if not matrix:
-            self.matrix = [[None] * dimensions for i in range(dimensions)]
+            self.matrix = [[None] * dimension for i in range(dimension)]
         else:
             self.matrix = matrix
 
-        self.dimensions = dimensions
+        self.dimension = dimension
         self.lineup = lineup
 
     def get_cell(self, x, y):
@@ -54,7 +54,7 @@ class Game:
 
         # Vertical roundtrip.
         count = 0
-        for i in range(1, self.dimensions + 1):
+        for i in range(1, self.dimension + 1):
             if self.get_cell(i, y) == color:
                 count += 1
                 if count == self.lineup:
@@ -66,9 +66,9 @@ class Game:
         # Intersection with left side.
         x1, y1 = 1, x + y - 1
         # Intersection with downside.
-        x2, y2 = x + y - self.dimensions, self.dimensions
+        x2, y2 = x + y - self.dimension, self.dimension
 
-        if y1 <= self.dimensions:
+        if y1 <= self.dimension:
             pos_x = x1
             pos_y = y1
         else:
@@ -76,7 +76,7 @@ class Game:
             pos_y = y2
 
         count = 0
-        while (pos_x <= self.dimensions) and (pos_y <= self.dimensions):
+        while (pos_x <= self.dimension) and (pos_y <= self.dimension):
             if self.get_cell(pos_x, pos_y) == color:
                 count += 1
                 if count == self.lineup:
@@ -101,7 +101,7 @@ class Game:
             pos_y = y2
 
         count = 0
-        while (pos_x <= self.dimensions) and (pos_y <= self.dimensions):
+        while (pos_x <= self.dimension) and (pos_y <= self.dimension):
             if self.get_cell(pos_x, pos_y) == color:
                 count += 1
                 if count == self.lineup:

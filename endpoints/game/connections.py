@@ -70,14 +70,14 @@ class GamesJoinConnection(BaseConnection):
 
         raw_data = yield gen.Task(
             redis_client.hmget, 'games:id:{}'.format(game_id),
-            ['dimensions', 'matrix', 'creator', 'opponent', 'color', 'lineup']
+            ['dimension', 'matrix', 'creator', 'opponent', 'color', 'lineup']
         )
 
         if raw_data[0] is None:
             errors.append('Wrong game id.')
 
         if not errors:
-            dimensions = int(raw_data[0])
+            dimension = int(raw_data[0])
             matrix = json.loads(raw_data[1].decode('utf-8'))
             creator = raw_data[2].decode('utf-8')
             opponent = raw_data[3] and raw_data[3].decode('utf-8')
@@ -96,8 +96,8 @@ class GamesJoinConnection(BaseConnection):
 
             game = {
                 'game_id': game_id,
-                'dimensions': dimensions,
-                'cells': Game(matrix, dimensions).serialize_cells()
+                'dimension': dimension,
+                'cells': Game(matrix, dimension).serialize_cells()
             }
 
             self.send(json.dumps({
@@ -119,7 +119,7 @@ class GamesJoinConnection(BaseConnection):
                 data_to_save)
 
             title = '{0} ({1}x{1}, {2} in row) [{3}]'.format(
-                creator, dimensions, lineup, color)
+                creator, dimension, lineup, color)
             yield gen.Task(
                 redis_client.srem, 'games:all',
                 '{}:{}'.format(game_id, title))
@@ -146,16 +146,16 @@ class GameCreateConnection(BaseConnection):
         errors = []
 
         try:
-            dimensions = int(message.get("dimensions"))
+            dimension = int(message.get("dimension"))
             lineup = int(message.get("lineup"))
             color = message.get("color")
-            if not dimensions or not lineup or not color:
+            if not dimension or not lineup or not color:
                 errors.append('Wrong config for the game.')
         except ValueError:
             errors.append('Wrong config for the game.')
 
-        if not errors and not (3 <= dimensions <= 30):
-            errors.append('Dimensions must be from 3 to 30.')
+        if not errors and not (3 <= dimension <= 30):
+            errors.append('Dimension must be from 3 to 30.')
 
         if not errors and not (3 <= lineup <= 30):
             errors.append('Lineup must be from 3 to 30.')
@@ -163,19 +163,19 @@ class GameCreateConnection(BaseConnection):
         if not errors and color not in ['black', 'white']:
             errors.append('Color must be "black" or "white".')
 
-        if not errors and lineup > dimensions:
-            errors.append('Lineup must be less than dimensions.')
+        if not errors and lineup > dimension:
+            errors.append('Lineup must be less than dimension.')
 
         if not errors:
             raw_data = yield gen.Task(redis_client.incr, 'games:counter')
             game_id = int(raw_data)
 
             title = '{0} ({1}x{1}, {2} in row) [{3}]'.format(
-                self.username, dimensions, lineup, color
+                self.username, dimension, lineup, color
             )
             data = {
                 'creator': self.username,
-                'dimensions': dimensions,
+                'dimension': dimension,
                 'lineup': lineup,
                 'color': color,
                 'matrix': []
@@ -189,7 +189,7 @@ class GameCreateConnection(BaseConnection):
 
             game = {
                 'game_id': game_id,
-                'dimensions': dimensions,
+                'dimension': dimension,
                 'cells': []
             }
 
@@ -232,7 +232,7 @@ class GameActionConnection(BaseConnection):
         if not errors:
             creator = data['creator']
             opponent = data['opponent']
-            dimensions = int(data['dimensions'])
+            dimension = int(data['dimension'])
             lineup = int(data['lineup'])
             color = data['color']
             turn = data['turn']
@@ -246,7 +246,7 @@ class GameActionConnection(BaseConnection):
                 "It's not your turn. Please, wait for your opponent's move.")
 
         if not errors:
-            game = Game(matrix, dimensions, lineup)
+            game = Game(matrix, dimension, lineup)
 
             if self.username == creator:
                 action_color = color
@@ -296,6 +296,32 @@ class GameActionConnection(BaseConnection):
             self.send_error(errors)
 
         if status is not None:
+            raw_data = yield gen.Task(
+                redis_client.delete, 'games:id:{}'.format(game_id)
+            )
+
+            url = 'http://localhost:8000/api/round/save'
+
+            post_data = {
+                'creator': creator,
+                'opponent': opponent,
+                'dimension': dimension,
+                'lineup': lineup,
+                'lead': creator if color == 'black' else opponent,
+                'winner': None if status == 'draw' else self.username
+            }
+
+            headers = {
+                'Content-Type': 'application/json'
+            }
+
+            yield http_client.fetch(
+                url, method="POST", headers=headers, body=json.dumps(post_data))
+
+            url = 'http://localhost:8000/api/player/top'
+            response = yield http_client.fetch(url, method="GET")
+            self.broadcast_all_channel('stats', response.body.decode('utf-8'))
+
             for username in [opponent, creator]:
                 player = self.get_player(username)
                 if status == 'draw':

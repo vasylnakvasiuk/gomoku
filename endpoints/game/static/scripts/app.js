@@ -312,7 +312,7 @@ app.view.details = {
 			);
 		});
 
-		$("#details-dimensions, #details-lineup").keyup(function(e) {
+		$("#details-dimension, #details-lineup").keyup(function(e) {
 			if (e.keyCode == 13) {
 				$("#details-create").click();
 			}
@@ -327,7 +327,7 @@ app.view.details = {
 
 	serialize: function() {
 		return {
-			"dimensions": $('#details-dimensions').val(),
+			"dimension": $('#details-dimension').val(),
 			"lineup": $('#details-lineup').val(),
 			"color": $('#details-color').val()
 		};
@@ -414,8 +414,8 @@ app.view.game = {
 
 	render: function() {
 		var cells = [];
-		for(var y = 1; y <= this.model.dimensions; y++) {
-			for(var x = 1; x <= this.model.dimensions; x++) {
+		for(var y = 1; y <= this.model.dimension; y++) {
+			for(var x = 1; x <= this.model.dimension; x++) {
 				cells.push(x + ":" + y);
 			}
 		}
@@ -436,8 +436,8 @@ app.view.game = {
 		var self = app.view.game;
 
 		var width = $("#game-field").closest(".page").width();
-		var size = Math.floor(width / self.model.dimensions);
-		$("#game-field").width(size * self.model.dimensions);
+		var size = Math.floor(width / self.model.dimension);
+		$("#game-field").width(size * self.model.dimension);
 		$('[data-coordinates]').css({
 			"width": size,
 			"height": size

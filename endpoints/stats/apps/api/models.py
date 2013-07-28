@@ -18,7 +18,6 @@ class Round(models.Model):
         validators=[MinValueValidator(3)])
     lead = models.ForeignKey(
         User, verbose_name='Black stone owner', related_name='lead_rounds')
-    moves = models.IntegerField('Moves')
     winner = models.ForeignKey(
         User, verbose_name='Winner', related_name='win_rounds',
         blank=True, null=True, on_delete=models.SET_NULL)
