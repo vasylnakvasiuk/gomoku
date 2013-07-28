@@ -346,7 +346,6 @@ app.view.game = {
 
 	init: function(model) {
 		this.model = model || this.model;
-		this.live = true;
 		this.render();
 	},
 
@@ -360,7 +359,7 @@ app.view.game = {
 
 		app.channel.gameActionSock.onmessage = function(evt) {
 			obj = $.parseJSON(evt.data);
-			if (obj.status == 'ok' && self.live){
+			if (obj.status == 'ok'){
 				stone = {"x": "2", "y": "2", "color": "white"};
 				self.putStone(stone);
 			}
@@ -388,7 +387,7 @@ app.view.game = {
 				break;
 			}
 			$('#game-field').animate({"opacity": 0.3}, "slow");
-			self.live = false;
+			$('[data-coordinates]:not([class])').unbind('click');
 		};
 
 		var resizeTimerID;
@@ -398,15 +397,13 @@ app.view.game = {
 		});
 
 		$('[data-coordinates]:not([class])').click(function() {
-			if (self.live){
-				app.channel.gameActionSock.send(
-					JSON.stringify({
-						'gameid': 100,
-						'x': 3,
-						'y': 3
-					})
-				);
-			}
+			app.channel.gameActionSock.send(
+				JSON.stringify({
+					'gameid': 100,
+					'x': 3,
+					'y': 3
+				})
+			);
 		});
 	},
 
