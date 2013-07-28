@@ -253,7 +253,12 @@ class GameActionConnection(BaseConnection):
             else:
                 action_color = 'white' if color == 'black' else 'black'
 
-            action = game.action(message['x'], message['y'], action_color)
+            color_dict = {
+                'white': 0,
+                'black': 1
+            }
+            action = game.action(
+                message['x'], message['y'], color_dict[action_color])
             if not action:
                 errors.append('Bad action.')
 
