@@ -236,6 +236,17 @@ class GameActionConnection(BaseConnection):
                 'color': 'black'
             }
         }))
+        self.get_player(data['opponent']).send_channel(
+            'game_action',
+            json.dumps({
+                'status': 'ok',
+                'turn': {
+                    'x': message['x'],
+                    'y': message['y'],
+                    'color': 'black'
+                }
+            })
+        )
         # self.send_channel('game_finish', json.dumps(
         #     {
         #         'winner': True
