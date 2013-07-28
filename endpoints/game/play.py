@@ -55,7 +55,7 @@ class Game:
         # Vertical roundtrip.
         count = 0
         for i in range(1, self.dimension + 1):
-            if self.get_cell(i, y) == color:
+            if self.get_cell(x, i) == color:
                 count += 1
                 if count == self.lineup:
                     return True
