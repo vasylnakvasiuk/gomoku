@@ -88,6 +88,29 @@ class Game:
             pos_y -= 1
 
         # Anti-diagonal roundtrip.
+        # Intersection with left side.
+        x1, y1 = 1 + (x - y), 1
+        # Intersection with downside.
+        x2, y2 = 1, 1 - (x - y)
+
+        if x1 >= 1:
+            pos_x = x1
+            pos_y = y1
+        else:
+            pos_x = x2
+            pos_y = y2
+
+        count = 0
+        while (pos_x <= self.dimensions) and (pos_y <= self.dimensions):
+            if self.get_cell(pos_x, pos_y) == color:
+                count += 1
+                if count == self.lineup:
+                    return True
+            else:
+                count = 0
+
+            pos_x += 1
+            pos_y += 1
 
         return False
 
