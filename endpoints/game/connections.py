@@ -3,127 +3,225 @@
 import json
 
 from tornado import gen
-from sockjs.tornado import SockJSConnection
 
-from clients import redis_client
+from base_connections import BaseConnection
+from decorators import expect_json, login_required
+from clients import redis_client, http_client
 
 
-class MultiParticipantsConnection(SockJSConnection):
-    """Connection, which save participants and support additional
-    methods for working with participants.
-    """
-    participants = set()
+class UsernameChoiceConnection(BaseConnection):
+    """Channel connection. Used for managing users."""
+    @expect_json
+    @gen.coroutine
+    def on_message(self, message):
+        username = message.get('username')
 
+        is_member = yield gen.Task(
+            redis_client.sismember, "players:all", username)
+
+        if not is_member:
+            # Logging in.
+            self.create_player(username)
+
+            raw_data = yield gen.Task(redis_client.incr, 'players:counter')
+            self.user_id = int(raw_data)
+
+            yield gen.Task(
+                redis_client.set,
+                'players:id:{}'.format(self.user_id),
+                self.username
+            )
+            yield gen.Task(redis_client.sadd, 'players:all', self.username)
+
+            answer = {
+                'status': 'ok',
+                'username': self.username,
+                'user_id': self.user_id
+            }
+            self.send(json.dumps(answer))
+        else:
+            self.send_error('Someone already has that username.')
+
+    @gen.coroutine
+    def on_close(self):
+        if self.is_logged:
+            yield gen.Task(
+                redis_client.delete, 'players:id:{}'.format(self.user_id))
+            yield gen.Task(redis_client.srem, 'players:all', self.username)
+
+
+class StatsConnection(BaseConnection):
+    @gen.coroutine
     def on_open(self, info):
-        self.participants.add(self)
+        url = 'http://localhost:8000/api/player/top'
+        response = yield http_client.fetch(url, method="GET")
+        self.send(response.body.decode('utf-8'))
         super().on_open(info)
 
-    def broadcast_all(self, message):
-        """Broadcast message to all participants."""
-        target_class = self.__class__
-        targets = [i for i in self.participants if isinstance(i, target_class)]
-        self.broadcast(targets, message)
 
-    def on_close(self):
-        self.participants.remove(self)
-        super().on_close()
+class NoteConnection(BaseConnection):
+    pass
 
 
-class ChannelConnection(SockJSConnection):
-    """Connection, for working with multiplex channels."""
-    def send_channel(self, channel, message, binary=False):
-        """Send message to the specific channel."""
-        if not self.is_closed:
-            self.session.send_message_channel(channel, message, binary=binary)
+class GamesListConnection(BaseConnection):
+    """Channel connection. Used for managing users."""
 
-    def broadcast_channel(self, channel, clients, message):
-        """Broadcast message to some participants for the specific
-        channel.
-        """
-        self.session.broadcast_channel(channel, clients, message)
-
-    def broadcast_all_channel(self, channel, message):
-        """Broadcast message to all participants for the specific
-        channel. This method expects, that `participants` property is
-        already exists (using, for example, `MultiParticipantsConnection`).
-        """
-        target_class = self.__class__
-        targets = [i for i in self.participants if isinstance(i, target_class)]
-        self.session.broadcast_channel(channel, targets, message)
+    @login_required
+    @gen.coroutine
+    def on_message(self, message):
+        games = yield self.get_games()
+        self.send(games)
 
 
-class ErrorConnection(SockJSConnection):
-    """Connection, for working with multiplex channels."""
-    def send_error(self, message):
-        if isinstance(message, list):
-            errors = message
+class GamesJoinConnection(BaseConnection):
+    @expect_json
+    @login_required
+    @gen.coroutine
+    def on_message(self, message):
+        errors = []
+        game_id = message.get('game_id')
+
+        raw_data = yield gen.Task(
+            redis_client.hmget, 'games:id:{}'.format(game_id),
+            ['dimensions', 'cells', 'creator', 'opponent', 'color']
+        )
+
+        if raw_data[0] is None:
+            errors.append('Wrong game id.')
+
+        if not errors:
+            dimensions = int(raw_data[0])
+            cells = json.loads(raw_data[1].decode('utf-8'))
+            creator = raw_data[2].decode('utf-8')
+            opponent = raw_data[3] and raw_data[3].decode('utf-8')
+            color = raw_data[4].decode('utf-8')
+
+            if opponent is not None:
+                errors.append('Game is already started.')
+
+            if self.username == creator:
+                errors.append("You can't play with youself.")
+
+        if not errors:
+            opponent = self.username
+            yield gen.Task(
+                redis_client.hset, 'games:id:{}'.format(game_id),
+                'opponent', opponent
+            )
+
+            game = {
+                'game_id': game_id,
+                'dimensions': dimensions,
+                'cells': cells
+            }
+
+            self.send(json.dumps({
+                'status': 'ok',
+                'game': game
+            }))
+
+            if color == 'black':
+                opponent_msg = 'You stone is white.'
+                creator_msg = 'You stone is black, and now your turn.'
+            else:
+                creator_msg = 'You stone is white.'
+                opponent_msg = 'You stone is black, and now your turn.'
+
+            self.send_channel(
+                'note',
+                json.dumps({'msg': 'Welcome to the game #{}. {}'.format(
+                    game_id, opponent_msg)})
+            )
+            self.get_player(creator).send_channel(
+                'note',
+                json.dumps({'msg': 'Joining new user "{}". {}'.format(
+                    opponent, creator_msg)})
+            )
         else:
-            errors = [message]
+            self.send_error(errors)
 
-        self.send(json.dumps(
+
+class GameCreateConnection(BaseConnection):
+    @expect_json
+    @login_required
+    @gen.coroutine
+    def on_message(self, message):
+        errors = []
+
+        try:
+            dimensions = int(message.get("dimensions"))
+            lineup = int(message.get("lineup"))
+            color = message.get("color")
+            if not dimensions or not lineup or not color:
+                errors.append('Wrong config for the game.')
+        except ValueError:
+            errors.append('Wrong config for the game.')
+
+        if not errors and not (3 <= dimensions <= 30):
+            errors.append('Dimensions must be from 3 to 30.')
+
+        if not errors and not (3 <= lineup <= 30):
+            errors.append('Lineup must be from 3 to 30.')
+
+        if not errors and color not in ['black', 'white']:
+            errors.append('Color must be "black" or "white".')
+
+        if not errors and lineup > dimensions:
+            errors.append('Lineup must be less than dimensions.')
+
+        if not errors:
+            raw_data = yield gen.Task(redis_client.incr, 'games:counter')
+            game_id = int(raw_data)
+
+            title = '{0} ({1}x{1}, {2} in row) [{3}]'.format(
+                self.username, dimensions, lineup, color
+            )
+            data = {
+                "creator": self.username,
+                "dimensions": dimensions,
+                "lineup": lineup,
+                "color": color,
+                "cells": []
+            }
+            yield gen.Task(
+                redis_client.hmset, 'games:id:{}'.format(game_id), data)
+            yield gen.Task(
+                redis_client.sadd, 'games:all',
+                '{}:{}'.format(game_id, title))
+
+            game = {
+                'game_id': game_id,
+                'dimensions': dimensions,
+                'cells': []
+            }
+
+            self.send(json.dumps({
+                'status': 'ok',
+                'game': game
+            }))
+
+            games = yield self.get_games()
+            self.broadcast_all_channel("games_list", games)
+
+            self.send_channel(
+                'note',
+                json.dumps({'msg': 'Waiting for the opponent...'})
+            )
+        else:
+            self.send_error(errors)
+
+
+class GameActionConnection(BaseConnection):
+    @expect_json
+    @login_required
+    @gen.coroutine
+    def on_message(self, message):
+        self.send_channel('game_finish', json.dumps(
             {
-                'status': 'error',
-                'errors': errors
+                'winner': True
             }
         ))
 
 
-class BaseConnection(ChannelConnection, MultiParticipantsConnection, ErrorConnection):
-    """Base connection for working with sockets."""
-
-    players = {}
-
-    def on_close(self):
-        self.remove_player()
-        super().on_close()
-
-    def create_player(self, username):
-        """Create player for current connection."""
-        self.username = username
-        self.players[username] = self
-
-    def remove_player(self):
-        """Remove player for current connection."""
-        if self.is_logged:
-            del self.players[self.username]
-            self.username = None
-
-    def get_player(self, username):
-        """Get player by username from all connections on the
-        current server.
-        """
-        return self.players.get(username)
-
-    @property
-    def is_logged(self):
-        """Check player login status for current connection."""
-        return bool(self.username)
-
-    @property
-    def username(self):
-        if hasattr(self.session, 'base'):
-            return getattr(self.session.base, 'username', None)
-        return None
-
-    @username.setter
-    def username(self, value):
-        if hasattr(self.session, 'base'):
-            setattr(self.session.base, 'username', value)
-
-    @gen.coroutine
-    def get_games(self):
-        """Return serialized list of games."""
-        games = []
-        raw_data = yield gen.Task(redis_client.smembers, 'games:all')
-        for game_id, title in [i.decode('utf-8').split(":", 1) for i in raw_data]:
-            games.append({
-                'game_id': int(game_id),
-                'title': title
-            })
-
-        answer = {
-            'status': 'ok',
-            'games': sorted(games, key=lambda obj: obj.get('game_id'))
-        }
-        # TODO: is it ok to use return?
-        return json.dumps(answer)
+class GameFinishConnection(BaseConnection):
+    pass
