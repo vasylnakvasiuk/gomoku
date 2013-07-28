@@ -10,11 +10,13 @@ Implementation `Gomoku`_ realtime game using Websockets.
 Technologies
 ------------
 
-Backend (game server): Python 3.3, Tornado 3.1, sockjs-tornado 1.0.0, Jinja2 2.7
+Backend (game server): Python 3.3, Tornado 3.1
 
-Backend (stats server): Python 3.3, Django 1.5.1, redis 2.7.6
+Backend (stats server): Python 3.3, Django 1.5.1
 
-Frontend: SockJS 0.3.4, jQuery 2.0.3, Less.js 1.4.2, Mustache 0.7.2, Websocket-Multiplexer 0.1
+Frontend: SockJS 0.3.4, jQuery 2.0.3, Less.js 1.4.2, Mustache 0.7.2
+
+Storage: Redis 2.6.14
 
 
 Installation
