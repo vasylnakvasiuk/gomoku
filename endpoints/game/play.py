@@ -32,9 +32,6 @@ class Game:
             return False, None
 
         self.set_cell(x, y, color)
-        print(self.matrix)
-        print()
-        print(x, y, color)
         return True, self.status(x, y, color)
 
     def is_filled(self):
@@ -46,10 +43,19 @@ class Game:
 
     def is_lineup(self, x, y, color):
         count = 0
-        for i in self.matrix[y - 1]:
-            if i == color:
+        for obj in self.matrix[y - 1]:
+            if obj == color:
                 count += 1
-                if count == self.dimensions:
+                if count == self.lineup:
+                    return True
+            else:
+                count = 0
+
+        count = 0
+        for i in range(self.dimensions):
+            if self.matrix[i][x - 1] == color:
+                count += 1
+                if count == self.lineup:
                     return True
             else:
                 count = 0
@@ -58,8 +64,8 @@ class Game:
 
     def status(self, x, y, color):
         """Return 'win', 'draw', None."""
-        # if self.is_lineup(x, y, color):
-        #     return 'win'
+        if self.is_lineup(x, y, color):
+            return 'win'
 
         if self.is_filled():
             return 'draw'
