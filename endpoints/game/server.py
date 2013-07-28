@@ -5,6 +5,7 @@ import json
 import tornado.ioloop
 import tornado.web
 import tornado.autoreload
+import tornado.options
 from tornado import gen
 
 from jinja2 import Environment, FileSystemLoader
@@ -246,6 +247,8 @@ class GameFinishConnection(BaseConnection):
 if __name__ == '__main__':
     import logging
     logging.getLogger().setLevel(logging.DEBUG)
+    tornado.options.define("port", default=8888, help="Run on port", type=int)
+    tornado.options.parse_command_line()
 
     # Create multiplexer
     channels = {
@@ -271,7 +274,7 @@ if __name__ == '__main__':
             (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': rel('static')},),
         ] + MainSocketRouter.urls
     )
-    app.listen(settings.PORT)
+    app.listen(tornado.options.options.port)
 
     io_loop = tornado.ioloop.IOLoop.instance()
     tornado.autoreload.start(io_loop)

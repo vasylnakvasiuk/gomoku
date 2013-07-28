@@ -253,6 +253,7 @@ app.view.games = {
 		var context;
 
 		if (this.model.length) {
+			this.model[0].first = true;
 			context = {
 				"data": {
 					loop: this.model
