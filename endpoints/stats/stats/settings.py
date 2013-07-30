@@ -1,5 +1,11 @@
 # Django settings for stats project.
 
+import os
+
+
+def rel(*x):
+    return os.path.join(os.path.abspath(os.path.dirname(__file__)), *x)
+
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
@@ -12,7 +18,7 @@ MANAGERS = ADMINS
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'database.sqlite',
+        'NAME': rel('..', '..', '..', 'database.sqlite'),
         'USER': '',
         'PASSWORD': '',
         'HOST': '',

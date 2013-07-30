@@ -85,6 +85,7 @@ class GamesJoinConnection(BaseConnection):
             lineup = raw_data[5].decode('utf-8')
 
             if opponent is not None:
+                print(opponent, game_id, raw_data)
                 errors.append('Game is already started.')
 
             if self.username == creator:
