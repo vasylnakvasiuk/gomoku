@@ -24,6 +24,7 @@ if __name__ == '__main__':
     import logging
     logging.getLogger().setLevel(logging.DEBUG)
     tornado.options.define("port", default=8888, help="Run on port", type=int)
+    tornado.options.define("address", default='localhost', help="Run on host", type=str)
     tornado.options.parse_command_line()
 
     # Create multiplexer
@@ -50,7 +51,10 @@ if __name__ == '__main__':
             (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': rel('static')},),
         ] + MainSocketRouter.urls
     )
-    app.listen(tornado.options.options.port)
+    app.listen(
+        tornado.options.options.port,
+        address=tornado.options.options.address
+    )
 
     io_loop = tornado.ioloop.IOLoop.instance()
     tornado.autoreload.start(io_loop)
