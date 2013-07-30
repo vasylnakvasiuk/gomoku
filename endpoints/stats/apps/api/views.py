@@ -43,7 +43,7 @@ def round_save(request):
     data = request.json_post_data
 
     if set(ALLOWED_KEYS) != set(data.keys()):
-        raise HttpResponseServerError('Wrong JSON keys.')
+        return HttpResponseServerError('Wrong JSON keys.')
 
     creator, created = User.objects.get_or_create(username=data['creator'])
     opponent, created = User.objects.get_or_create(username=data['opponent'])
@@ -57,8 +57,8 @@ def round_save(request):
         winner, created = User.objects.get_or_create(
             username=data['winner'])
 
-    if (creator == opponent) or (winner not in [creator, opponent]):
-        raise HttpResponseServerError('Wrong JSON value.')
+    if (creator == opponent) or (winner and winner not in [creator, opponent]):
+        return HttpResponseServerError('Wrong JSON value.')
 
     Round.objects.create(
         creator=creator, opponent=opponent, dimension=dimension,

@@ -23,6 +23,9 @@ class Game:
         self.matrix[y - 1][x - 1] = value
 
     def action(self, x, y, color):
+        if x <= 0 or y <= 0:
+            return False, None
+
         try:
             stone = self.get_cell(x, y)
         except IndexError:
@@ -76,7 +79,7 @@ class Game:
             pos_y = y2
 
         count = 0
-        while (pos_x <= self.dimension) and (pos_y <= self.dimension):
+        while (pos_x <= self.dimension) and (pos_y >= 1):
             if self.get_cell(pos_x, pos_y) == color:
                 count += 1
                 if count == self.lineup:
