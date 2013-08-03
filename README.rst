@@ -27,7 +27,7 @@ I've used next cool, fresh and awesome stack of technologies:
 
 Backend (game server): Python 3.3, Tornado 3.1, Redis 2.6.14
 
-Backend (stats server): Python 3.3, Django 1.5.1, PostgreSQL 9.1
+Backend (stats server): Python 3.3, Django 1.5.1, SQL DB
 
 Frontend: SockJS 0.3.4, jQuery 2.0.3, Less.js 1.4.2, Mustache 0.7.2
 
