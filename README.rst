@@ -7,8 +7,8 @@ Description
 Implementation `Gomoku`_ realtime game using Websockets.
 
 
-Description of the game mechanic
---------------------------------
+Description of the game's mechanic
+----------------------------------
 
 First of all you must choose your login. Then you can "Join" to the existed games, or "Create" new one.
 
@@ -26,7 +26,9 @@ Technical description
 I've used next cool, fresh and awesome stack of technologies:
 
 Backend (game server): Python 3.3, Tornado 3.1, Redis 2.6.14
+
 Backend (stats server): Python 3.3, Django 1.5.1, PostgreSQL 9.1
+
 Frontend: SockJS 0.3.4, jQuery 2.0.3, Less.js 1.4.2, Mustache 0.7.2
 
 Game server communicates with browser by Websocket or Websocket emulation (some fallback protocols if Websocket is not available).
@@ -35,8 +37,6 @@ Game server communicates with Stats server by HTTP protocol asynchronously.
 
 Installation
 ------------
-
-Some description.
 
 .. code:: bash
 
