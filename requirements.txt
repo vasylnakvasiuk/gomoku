@@ -5,6 +5,7 @@ Jinja2==2.7
 
 # TODO: some problem with Python 3.3. Now I'm using my fork.
 # toredis==0.1.2
+-e git+git://github.com/vaxXxa/toredis.git#egg=toredis
 
 # stats endpoint
 Django==1.5.1
