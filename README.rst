@@ -68,7 +68,6 @@ Run stats server
 Screenshots
 -----------
 
-.. image:: http://imageshack.us/a/img199/3407/vlol.png
 .. image:: http://imageshack.us/a/img853/7600/gxoo.png
 
 
