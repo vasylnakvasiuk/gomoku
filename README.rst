@@ -2,7 +2,7 @@ Screenshots
 ===========
 
 .. image:: https://raw.github.com/vaxXxa/gomoku/master/screenshot.png
-    :alt: gomoku screenshot
+    :alt: gomoku
     :align: center
 
 Gomoku game
