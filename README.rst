@@ -22,7 +22,7 @@ First of all you must choose your login. Then you can "Join" to the existed game
 Dimension - dimension of the board.
 Lineup - number of stones, that players must put in a row (horizontal, vertical, diagonally, anti-diagonally).
 
-Also, in any moment players can see general statistics og the games. Just press "Esc" button or click on the blue line on the top of the page.
+Also, in any moment players can see general statistics of the games. Just press "Esc" button or click on the blue line on the top of the page.
 
 Have fun :)
 
