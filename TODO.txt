@@ -1,2 +1,0 @@
-1. Use `tornado.gen.Return` or return.
-2. Use models instead of many logic in controllers.

@@ -1,3 +1,10 @@
+Screenshots
+===========
+
+.. image:: https://raw.github.com/vaxXxa/gomoku/master/screenshot.png
+    :alt: gomoku screenshot
+    :align: center
+
 Gomoku game
 ============
 
@@ -55,22 +62,18 @@ Run game server
     $ redis-server /usr/local/etc/redis.conf
     $ python endpoints/game/server.py
 
+Go to http://127.0.0.1:8888/
+
 
 Run stats server
 ----------------
 
 .. code:: bash
 
-    $ python endpoints/stats/manage.py syncdb --noinput
+    $ python endpoints/stats/manage.py syncdb
     $ python endpoints/stats/manage.py runserver
 
-
-Screenshots
------------
-
-.. image:: http://imageshack.us/a/img443/3824/71t3.png
-.. image:: http://imageshack.us/a/img199/3407/vlol.png
-.. image:: http://imageshack.us/a/img853/7600/gxoo.png
+Go to http://127.0.0.1:8000/admin/
 
 
 .. _`Gomoku`: https://en.wikipedia.org/wiki/Gomoku
