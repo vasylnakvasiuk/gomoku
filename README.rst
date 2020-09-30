@@ -77,3 +77,8 @@ Go to http://127.0.0.1:8000/admin/
 
 
 .. _`Gomoku`: https://en.wikipedia.org/wiki/Gomoku
+
+### After Credits
+By Gomoku games
+
+#Thanks for playing
